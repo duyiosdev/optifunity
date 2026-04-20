@@ -1,0 +1,27 @@
+{
+    "name": "Optifunity.Editor",
+    "rootNamespace": "Optifunity.Editor",
+    "references": [
+        "Optifunity.Runtime",
+        "Unity.RenderPipelines.Universal.Editor",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.RenderPipelines.Core.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.memoryprofiler",
+            "expression": "1.0.0",
+            "define": "UNITY_MEMORYPROFILER_EXISTS"
+        }
+    ],
+    "noEngineReferences": false
+}

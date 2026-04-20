@@ -1,0 +1,26 @@
+{
+  "name": "com.antigravity.optifunity",
+  "version": "1.0.0",
+  "displayName": "Optifunity - URP Performance Analyzer",
+  "description": "Automated Unity URP performance analysis plugin. Detects GC allocations, boxing, memory leaks, audits assets (textures, meshes, audio), captures memory snapshots, and diagnoses URP render pipeline configuration for PC and mobile targets.",
+  "unity": "2021.3",
+  "unityRelease": "0f1",
+  "documentationUrl": "https://github.com/antigravity/optifunity",
+  "changelogUrl": "https://github.com/antigravity/optifunity/CHANGELOG.md",
+  "keywords": [
+    "performance",
+    "optimization",
+    "urp",
+    "profiler",
+    "memory",
+    "mobile",
+    "android",
+    "ios"
+  ],
+  "author": {
+    "name": "Antigravity",
+    "email": "dev@antigravity.ai",
+    "url": "https://antigravity.ai"
+  },
+  "dependencies": {}
+}

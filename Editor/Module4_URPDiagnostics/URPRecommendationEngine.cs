@@ -134,8 +134,8 @@ namespace Optifunity.Editor.Module4
                     issues.Add(new PerformanceIssue
                     {
                         Severity      = IssueSeverity.Warning,
-                        Title         = $"Shadow Cascade Count quá cao cho Mobile: {snapshot.ShadowCascadeCount}",
-                        Description   = $"Cascade Count = {snapshot.ShadowCascadeCount} yêu cầu vẽ shadow map " +
+                        Title         = "Shadow Cascade Count quá cao cho Mobile",
+                        Description   = $"Cascade Count hiện tại là {snapshot.ShadowCascadeCount}, yêu cầu vẽ shadow map " +
                                         $"{snapshot.ShadowCascadeCount} lần. Trên mobile, khuyến nghị ≤ 2.",
                         AssetPath     = snapshot.AssetPath,
                         FixSuggestion = "Giảm Shadow Cascade Count về 1 hoặc 2 trong URP Asset → Shadows."
@@ -160,7 +160,7 @@ namespace Optifunity.Editor.Module4
                     issues.Add(new PerformanceIssue
                     {
                         Severity      = IssueSeverity.Warning,
-                        Title         = $"Shadow Atlas Resolution quá lớn: {snapshot.MainLightShadowResolution}px",
+                        Title         = "Shadow Atlas Resolution quá lớn cho Mobile",
                         Description   = $"Shadow map {snapshot.MainLightShadowResolution}x{snapshot.MainLightShadowResolution} " +
                                         $"chiếm nhiều VRAM. Trên mobile, 512-1024 là đủ.",
                         AssetPath     = snapshot.AssetPath,
@@ -212,8 +212,8 @@ namespace Optifunity.Editor.Module4
                 issues.Add(new PerformanceIssue
                 {
                     Severity      = IssueSeverity.Warning,
-                    Title         = $"Per-Object Additional Light Count cao: {snapshot.AdditionalLightCount}",
-                    Description   = $"Mỗi object có thể bị ảnh hưởng bởi tới {snapshot.AdditionalLightCount} additional lights. " +
+                    Title         = "Per-Object Additional Light Count cao",
+                    Description   = $"Mỗi object có thể bị ảnh hưởng tới {snapshot.AdditionalLightCount} additional lights. " +
                                     $"Trên mobile, con số này nên ≤ 4 (khuyến nghị 1-2).",
                     AssetPath     = snapshot.AssetPath,
                     FixSuggestion = "Giảm Additional Lights Per Object Limit về 2-4 trong URP Asset → Lighting. " +

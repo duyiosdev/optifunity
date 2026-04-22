@@ -23,7 +23,6 @@ namespace Optifunity.Editor.Core
     {
         CodeAnalysis,
         AssetAudit,
-        MemoryProfiler,
         URPDiagnostics
     }
 
@@ -61,11 +60,10 @@ namespace Optifunity.Editor.Core
 
         public List<PerformanceIssue> CodeIssues    = new();
         public List<PerformanceIssue> AssetIssues   = new();
-        public List<PerformanceIssue> MemoryIssues  = new();
         public List<PerformanceIssue> URPIssues     = new();
 
         public IEnumerable<PerformanceIssue> AllIssues =>
-            CodeIssues.Concat(AssetIssues).Concat(MemoryIssues).Concat(URPIssues);
+            CodeIssues.Concat(AssetIssues).Concat(URPIssues);
 
         public int ErrorCount   => AllIssues.Count(i => i.Severity == IssueSeverity.Error);
         public int WarningCount => AllIssues.Count(i => i.Severity == IssueSeverity.Warning);
@@ -125,7 +123,6 @@ namespace Optifunity.Editor.Core
             {
                 case IssueModule.CodeAnalysis:    _lastReport.CodeIssues   .AddRange(list); break;
                 case IssueModule.AssetAudit:      _lastReport.AssetIssues  .AddRange(list); break;
-                case IssueModule.MemoryProfiler:  _lastReport.MemoryIssues .AddRange(list); break;
                 case IssueModule.URPDiagnostics:  _lastReport.URPIssues    .AddRange(list); break;
             }
         }
@@ -166,13 +163,11 @@ namespace Optifunity.Editor.Core
             sb.AppendLine($"|--------|--------|----------|-------|");
             AppendModuleRow(sb, "Code Analysis",    report.CodeIssues);
             AppendModuleRow(sb, "Asset Audit",      report.AssetIssues);
-            AppendModuleRow(sb, "Memory Profiler",  report.MemoryIssues);
             AppendModuleRow(sb, "URP Diagnostics",  report.URPIssues);
             sb.AppendLine();
 
             AppendSection(sb, "## Code Analysis Issues", report.CodeIssues);
             AppendSection(sb, "## Asset Audit Issues",   report.AssetIssues);
-            AppendSection(sb, "## Memory Issues",        report.MemoryIssues);
             AppendSection(sb, "## URP Issues",           report.URPIssues);
 
             return sb.ToString();

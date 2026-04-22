@@ -16,7 +16,7 @@ namespace Optifunity.Editor.Module1
         /// <summary>
         /// Chạy toàn bộ phân tích mã nguồn và trả về danh sách issues
         /// </summary>
-        public static List<Core.PerformanceIssue> RunAll(bool showProgress = true)
+        public static List<Core.PerformanceIssue> RunAll(bool showProgress = true, bool myScriptsOnly = false)
         {
             if (_isRunning)
             {
@@ -29,19 +29,22 @@ namespace Optifunity.Editor.Module1
 
             try
             {
-                // Tìm tất cả script assets trong project
                 string[] guids = AssetDatabase.FindAssets("t:Script", new[] { "Assets" });
                 int total = guids.Length;
 
                 for (int idx = 0; idx < total; idx++)
                 {
-                    string guid = guids[idx];
+                    string guid      = guids[idx];
                     string assetPath = AssetDatabase.GUIDToAssetPath(guid);
 
-                    // Bỏ qua scripts trong Editor/ của packages và Generated code
+                    // Always skip generated code & UPM packages
                     if (assetPath.Contains("/Packages/") ||
                         assetPath.Contains("\\Packages\\") ||
                         assetPath.Contains(".g.cs"))
+                        continue;
+
+                    // My Scripts Only: only include folders in the whitelist
+                    if (myScriptsOnly && !UI.DashboardWindow.IsUserCodePath(assetPath))
                         continue;
 
                     if (showProgress)

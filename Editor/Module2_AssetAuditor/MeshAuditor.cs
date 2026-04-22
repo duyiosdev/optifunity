@@ -10,18 +10,18 @@ namespace Optifunity.Editor.Module2
     /// </summary>
     public static class MeshAuditor
     {
-        public static List<PerformanceIssue> Audit()
+        public static List<PerformanceIssue> Audit(bool myScriptsOnly = false)
         {
             var issues = new List<PerformanceIssue>();
             bool isMobile = PlatformConfig.IsMobile;
 
-            // Tìm tất cả Model assets (FBX, OBJ...)
             string[] guids = AssetDatabase.FindAssets("t:Model");
 
             foreach (string guid in guids)
             {
                 string path = AssetDatabase.GUIDToAssetPath(guid);
                 if (path.StartsWith("Packages/")) continue;
+                if (myScriptsOnly && !UI.DashboardWindow.IsUserCodePath(path)) continue;
 
                 var importer = AssetImporter.GetAtPath(path) as ModelImporter;
                 if (importer == null) continue;

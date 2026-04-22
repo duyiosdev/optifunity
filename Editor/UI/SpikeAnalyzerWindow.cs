@@ -4,6 +4,7 @@ using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
 using Optifunity.Editor.UI;
+using Optifunity.Editor.Module5;
 
 namespace Optifunity.Editor.Module5.UI
 {
@@ -36,7 +37,7 @@ namespace Optifunity.Editor.Module5.UI
 
         // Tabs trong Analysis panel
         private int _analysisTab;
-        private readonly string[] _analysisTabs = { "Bottleneck", "Samples", "GC Alloc", "Compare" };
+        private string[] _analysisTabs = { "Bottleneck", "Samples", "GC Alloc", "Rendering", "Compare" };
 
         // ─── Menu ─────────────────────────────────────────────────────────────
         [MenuItem("Tools/Optifunity/Spike Analyzer", priority = 10)]
@@ -60,10 +61,19 @@ namespace Optifunity.Editor.Module5.UI
         {
             SpikeDetector.OnFrameSelected   += OnProfilerFrameSelected;
             SpikeDetector.OnTimelineUpdated += OnTimelineUpdated;
+
+            // Force immediate load of ALL available frames when window opens
+            int first = ProfilerDriver.firstFrameIndex;
+            int last  = ProfilerDriver.lastFrameIndex;
+            if (first >= 0 && last >= 0)
+            {
+                SpikeDetector.BulkLoadTimeline(first, last);
+            }
+
             _timeline = SpikeDetector.FrameBuffer;
 
-            // Phân tích frame hiện tại nếu có
-            int curFrame = ProfilerDriver.selectedFrame;
+            // Analyze currently selected frame if ProfilerWindow is open
+            int curFrame = ProfilerHelper.GetSelectedFrame();
             if (curFrame >= 0) AnalyzeFrame(curFrame);
         }
 
@@ -86,13 +96,18 @@ namespace Optifunity.Editor.Module5.UI
             Repaint();
         }
 
-        // Gọi 10 lần/giây — đủ để phát hiện frame selection change
+        // Polling ~10x/s to catch selection changes even without an event
         private void OnInspectorUpdate()
         {
             if (!_autoFollowProfiler) return;
-            int cur = ProfilerDriver.selectedFrame;
-            if (cur >= 0 && (_currentReport == null || cur != _currentReport.FrameIndex))
+            int cur = ProfilerHelper.GetSelectedFrame();
+            // cur == -1 means Profiler window is not open — skip
+            if (cur < 0) return;
+            if (_currentReport == null || cur != _currentReport.FrameIndex)
+            {
+                AnalyzeFrame(cur);
                 Repaint();
+            }
         }
 
         private void AnalyzeFrame(int frameIndex)
@@ -178,12 +193,27 @@ namespace Optifunity.Editor.Module5.UI
 
             if (_timeline == null || _timeline.Count == 0)
             {
-                GUI.Label(_timelineRect, "  Chưa có dữ liệu Profiler. Mở Profiler window và bắt đầu record.",
+                int first = ProfilerDriver.firstFrameIndex;
+                int last  = ProfilerDriver.lastFrameIndex;
+                bool hasData = first >= 0 && last >= 0;
+
+                string msg = hasData
+                    ? $"  Đang tải dữ liệu... ({last - first + 1} frames khả dụng)"
+                    : "  Chưa có dữ liệu Profiler.\n  1. Mở: Window → Analysis → Profiler\n  2. Nhấn Record (đƲn tròn đỏ) và chạy game\n  3. Click vào bất kỳ frame nào trong Profiler";
+
+                GUI.Label(_timelineRect, msg,
                     new GUIStyle(EditorStyles.miniLabel)
                     {
-                        normal = { textColor = OptifunityStyles.TextSecondary },
-                        alignment = TextAnchor.MiddleCenter
+                        normal    = { textColor = hasData
+                            ? OptifunityStyles.ColorWarning
+                            : OptifunityStyles.TextSecondary },
+                        alignment = TextAnchor.MiddleCenter,
+                        wordWrap  = true
                     });
+
+                // If data exists but not loaded yet, trigger bulk load
+                if (hasData)
+                    SpikeDetector.BulkLoadTimeline(first, last);
                 return;
             }
 
@@ -265,10 +295,13 @@ namespace Optifunity.Editor.Module5.UI
                     }
                     else
                     {
-                        // Normal click → analyze
+                        // Normal click → analyze + pause editor like Profiler does
                         AnalyzeFrame(clickedFrame);
-                        // Sync Profiler selection
-                        ProfilerDriver.selectedFrame = clickedFrame;
+                        ProfilerHelper.SetSelectedFrame(clickedFrame);
+
+                        // Pause playback so user can inspect the frame (same behavior as Profiler)
+                        if (Application.isPlaying && !EditorApplication.isPaused)
+                            EditorApplication.isPaused = true;
                     }
                     evt.Use();
                 }
@@ -325,7 +358,13 @@ namespace Optifunity.Editor.Module5.UI
             if (_currentReport == null)
             {
                 GUILayout.Space(20);
-                GUILayout.Label("  Click vào một frame trong Timeline hoặc Profiler window để phân tích.",
+
+                int selFrame = ProfilerHelper.GetSelectedFrame();
+                string hint = selFrame >= 0
+                    ? $"  Đang theo dõi Profiler — frame hiện tại: #{selFrame}\n  Click vào một frame bất kỳ trong Profiler để phân tích."
+                    : "  Mở Unity Profiler (Window → Analysis → Profiler)\n  và click vào bất kỳ frame nào trong timeline.";
+
+                GUILayout.Label(hint,
                     new GUIStyle(EditorStyles.centeredGreyMiniLabel) { fontSize = 11 });
                 return;
             }
@@ -349,7 +388,8 @@ namespace Optifunity.Editor.Module5.UI
                 case 0: DrawBottleneckTab(_currentReport); break;
                 case 1: DrawSamplesTab(_currentReport.TopSlowSamples, "Slowest Samples (by CPU time)"); break;
                 case 2: DrawSamplesTab(_currentReport.TopGCAllocSamples, "GC Allocators (by bytes)"); break;
-                case 3: DrawCompareTab(); break;
+                case 3: DrawRenderingTab(_currentReport); break;
+                case 4: DrawCompareTab(); break;
             }
 
             GUILayout.Space(8);
@@ -395,7 +435,7 @@ namespace Optifunity.Editor.Module5.UI
                 // Navigate to Profiler
                 if (GUILayout.Button("Open in Profiler", GUILayout.Width(110), GUILayout.Height(20)))
                 {
-                    ProfilerDriver.selectedFrame = r.FrameIndex;
+                    ProfilerHelper.SetSelectedFrame(r.FrameIndex);
                     // Try to open Profiler window
                     EditorApplication.ExecuteMenuItem("Window/Analysis/Profiler");
                 }
@@ -602,6 +642,126 @@ namespace Optifunity.Editor.Module5.UI
                     }
                 }, rowBg);
             }
+        }
+
+        // ─── Rendering Tab ─────────────────────────────────────────────────────
+        private void DrawRenderingTab(SpikeAnalysisReport r)
+        {
+            GUILayout.Label("  Rendering Analysis — Frame #" + r.FrameIndex, OptifunityStyles.StyleHeader);
+
+            var snapshot = Optifunity.Editor.Module5.SpikeAnalysisRunner.GetCachedSnapshot(r.FrameIndex);
+            bool hasData = snapshot != null && snapshot.IsValid;
+
+            // GPU vs CPU time summary
+            DrawCard(() =>
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    void DrawTimeBlock(string label, float ms, float budget, Color accent)
+                    {
+                        Color col = ms > budget * 1.5f ? OptifunityStyles.ColorError
+                                  : ms > budget         ? OptifunityStyles.ColorWarning
+                                  : OptifunityStyles.ColorSuccess;
+                        using (new EditorGUILayout.VerticalScope(GUILayout.Width(160)))
+                        {
+                            GUILayout.Label(label, new GUIStyle(EditorStyles.miniLabel) { normal = { textColor = accent } });
+                            GUILayout.Label($"{ms:F2}ms",
+                                new GUIStyle(EditorStyles.boldLabel) { fontSize = 16, normal = { textColor = col } });
+                            GUILayout.Label($"Budget: {budget:F1}ms (60fps)",
+                                new GUIStyle(EditorStyles.miniLabel) { normal = { textColor = OptifunityStyles.TextSecondary } });
+                        }
+                    }
+
+                    float gpuMs = hasData ? snapshot.TotalGpuTimeMs : 0f;
+                    float cpuMs = r.FrameTotalMs;
+                    DrawTimeBlock("CPU Frame", cpuMs, 16.67f, OptifunityStyles.AccentBlue);
+                    GUILayout.Space(20);
+                    DrawTimeBlock("GPU Frame", gpuMs, 16.67f, new Color(0.9f, 0.4f, 0.9f));
+                    GUILayout.FlexibleSpace();
+
+                    // GPU vs CPU bound indicator
+                    string bound = gpuMs > cpuMs * 1.2f ? "👋 GPU Bound"
+                                 : cpuMs > gpuMs * 1.2f ? "💀 CPU Bound"
+                                 : "⚖️ Balanced";
+                    Color bColor = gpuMs > cpuMs * 1.2f ? new Color(0.9f, 0.4f, 0.9f)
+                                 : cpuMs > gpuMs * 1.2f ? OptifunityStyles.ColorWarning
+                                 : OptifunityStyles.ColorSuccess;
+                    GUILayout.Label(bound, new GUIStyle(EditorStyles.boldLabel)
+                        { normal = { textColor = bColor }, fontSize = 13 });
+                }
+            });
+
+            GUILayout.Space(6);
+
+            if (!hasData)
+            {
+                EditorGUILayout.HelpBox("Không có dữ liệu chi tiết cho frame này.\nHãy ghi lại trong Profiler và click vào frame cần phân tích.", MessageType.Info);
+                return;
+            }
+
+            // ─── Rendering markers ───────────────────────
+            GUILayout.Label("  Rendering Breakdown", OptifunityStyles.StyleHeader);
+
+            // Marker data from hierarchy
+            float cameraRenderMs   = snapshot.SumTime("Camera.Render");
+            float cullingMs        = snapshot.SumTime("Camera.Cull");
+            float shadowMs         = snapshot.SumTime("RenderShadowMaps") + snapshot.SumTime("ShadowMap Rendering");
+            float urpRenderMs      = snapshot.SumTime("UniversalRenderPipeline.RenderSingleCamera");
+            float opaqueMs         = snapshot.SumTime("RenderLoop.DrawSRPBatcher") + snapshot.SumTime("SRPBatcherSortObjects");
+            float transparentMs    = snapshot.SumTime("Transparent") + snapshot.SumTime("TransparentGeometry");
+            float postFxMs         = snapshot.SumTime("PostProcessing") + snapshot.SumTime("Stop NaN");
+            float uiMs             = snapshot.SumTime("Canvas.Render") + snapshot.SumTime("Canvas.BuildBatch");
+            float waitPresentMs    = snapshot.SumTime("Gfx.WaitForPresent");
+
+            void DrawRenderRow(string label, float ms, float budget, string tip)
+            {
+                if (ms < 0.01f) return; // skip empty
+                Color rowColor = ms > budget ? OptifunityStyles.ColorError
+                               : ms > budget * 0.7f ? OptifunityStyles.ColorWarning
+                               : OptifunityStyles.TextSecondary;
+                DrawCard(() =>
+                {
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        float pct = r.FrameTotalMs > 0 ? ms / r.FrameTotalMs * 100f : 0f;
+                        GUILayout.Label($"  {label}",
+                            new GUIStyle(EditorStyles.label) { normal = { textColor = OptifunityStyles.TextPrimary }, fontSize = 10 },
+                            GUILayout.Width(250));
+                        GUILayout.Label($"{ms:F2}ms",
+                            new GUIStyle(EditorStyles.boldLabel) { normal = { textColor = rowColor }, fontSize = 10 },
+                            GUILayout.Width(70));
+                        GUILayout.Label($"{pct:F1}%",
+                            new GUIStyle(EditorStyles.miniLabel) { normal = { textColor = OptifunityStyles.ColorInfo } },
+                            GUILayout.Width(50));
+                        if (!string.IsNullOrEmpty(tip) && ms > budget)
+                            GUILayout.Label($"⚠️ {tip}",
+                                new GUIStyle(EditorStyles.miniLabel) { normal = { textColor = OptifunityStyles.ColorWarning }, wordWrap = true });
+                    }
+                }, ms > budget ? new Color(0.25f, 0.1f, 0.1f) : new Color(0.13f, 0.15f, 0.17f));
+            }
+
+            DrawRenderRow("Camera.Render (Total)",  cameraRenderMs, 12f, "Camera.Render quá cao — kiểm tra draw calls, culling");
+            DrawRenderRow("URP RenderSingleCamera", urpRenderMs,   10f, "URP Pass quá nhiều — tắt bớt Renderer Features không dùng");
+            DrawRenderRow("├ Camera Culling",       cullingMs,     2f,  "Culling chậm — giảm OccluderGeometry, dùng Layer mask hiệu quả");
+            DrawRenderRow("├ Shadow Maps",          shadowMs,      3f,  "Shadow render đắt — giảm Shadow Cascades, Distance, Resolution");
+            DrawRenderRow("├ Opaque Geometry",      opaqueMs,      5f,  "Opaque pass chậm — bật SRP Batcher, giảm SetPass");
+            DrawRenderRow("├ Transparent",          transparentMs, 2f,  "Transparent pass tốn — sort đắt, giảm overdraw");
+            DrawRenderRow("├ Post Processing",      postFxMs,      3f,  "Post FX đắt — tắt Bloom/DOF trên mobile hoặc giảm resolution");
+            DrawRenderRow("UI Canvas Render",        uiMs,          2f,  "Canvas rebuild đắt — tách UI động vs tĩnh, dùng SetActive ít");
+            DrawRenderRow("Gfx.WaitForPresent",      waitPresentMs, 4f,  "GPU Bound! GPU chưa xong khi CPU đợi — giảm shader complexity");
+
+            // Rendering tips
+            GUILayout.Space(6);
+            DrawCard(() =>
+            {
+                GUILayout.Label("💡 Rendering Optimization Tips", OptifunityStyles.StyleIssueTitle);
+                GUILayout.Space(3);
+                GUILayout.Label("  1. Bật SRP Batcher (Project Settings → Graphics): giảm SetPass Calls ~60%", OptifunityStyles.StyleIssueDesc);
+                GUILayout.Label("  2. GPU Instancing cho mesh giống nhau (≥ 100 instance)", OptifunityStyles.StyleIssueDesc);
+                GUILayout.Label("  3. Shadow Distance nhỏ lại (vd: 50m thay vì 150m) giảm nặng shadow pass", OptifunityStyles.StyleIssueDesc);
+                GUILayout.Label("  4. Occlusion Culling cho scene tĩnh — giảm render object bị che khuất", OptifunityStyles.StyleIssueDesc);
+                GUILayout.Label("  5. DrawMeshInstanced API cho vật thể procedural (≥ 1000 objects)", OptifunityStyles.StyleIssueDesc);
+            }, new Color(0.1f, 0.15f, 0.1f));
         }
 
         // ─── Compare Tab ──────────────────────────────────────────────────────

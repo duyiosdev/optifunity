@@ -57,7 +57,7 @@ namespace Optifunity.Editor.Module4
         {
             var snapshot = new URPSettingsSnapshot();
 
-            var pipelineAsset = GraphicsSettings.renderPipelineAsset as UniversalRenderPipelineAsset;
+            var pipelineAsset = GraphicsSettings.defaultRenderPipeline as UniversalRenderPipelineAsset;
             if (pipelineAsset == null)
             {
                 snapshot.IsURPActive = false;
@@ -109,7 +109,7 @@ namespace Optifunity.Editor.Module4
         /// </summary>
         public static void PingURPAsset()
         {
-            var asset = GraphicsSettings.renderPipelineAsset;
+            var asset = GraphicsSettings.defaultRenderPipeline;
             if (asset != null)
             {
                 EditorGUIUtility.PingObject(asset);

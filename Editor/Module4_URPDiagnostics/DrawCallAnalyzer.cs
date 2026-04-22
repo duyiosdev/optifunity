@@ -47,12 +47,9 @@ namespace Optifunity.Editor.Module4
                 return stats;
             }
 
-            // Dùng Recorder API để lấy thống kê kết xuất
+            // Dùng UnityStats API để lấy thống kê kết xuất (Editor stats)
             try
             {
-                using var batchesRecorder    = Profiler.GetRecorder("Render.OpaqueGeometry.Batches");
-                using var setpassRecorder    = Profiler.GetRecorder("Camera.SetupStereoRenderingPass");
-                using var trianglesRecorder  = Profiler.GetRecorder("Render.OpaqueGeometry.Vertices");
 
                 // Frame Stats từ Unity GameObject (fallback method)
                 // Unity Stats object — chỉ in Editor
@@ -158,9 +155,9 @@ namespace Optifunity.Editor.Module4
                 issues.Add(new PerformanceIssue
                 {
                     Severity      = IssueSeverity.Warning,
-                    Title         = $"Triangle Count vượt ngưỡng Mobile: {stats.TrianglesRendered / 1000000f:F1}M triangles",
-                    Description   = $"Tài liệu khuyến nghị {MOBILE_TRI_WARNING_M / 1000000f:F0}-{MOBILE_TRI_WARNING_M * 2 / 1000000f:F0}M triangles cho mobile 60fps. " +
-                                    $"Hiện tại: {stats.TrianglesRendered / 1000000f:F2}M.",
+                    Title         = "Triangle Count vượt ngưỡng Mobile",
+                    Description   = $"Hiển thị {stats.TrianglesRendered / 1000000f:F1}M triangles. " +
+                                    $"Tài liệu khuyến nghị {MOBILE_TRI_WARNING_M / 1000000f:F0}-{MOBILE_TRI_WARNING_M * 2 / 1000000f:F0}M triangles cho mobile 60fps.",
                     FixSuggestion = "1. Thiết lập LOD Groups (LOD0/LOD1/LOD2) cho character và environmental objects.\n" +
                                     "2. Dùng Occlusion Culling để loại bỏ objects bị che khuất.\n" +
                                     "3. Giảm poly density của background assets."
@@ -208,8 +205,8 @@ namespace Optifunity.Editor.Module4
             issues.Add(new PerformanceIssue
             {
                 Severity      = bottleneckType == "Balanced" ? IssueSeverity.Info : IssueSeverity.Warning,
-                Title         = $"Phân loại nút thắt: {bottleneckType}",
-                Description   = description,
+                Title         = "Phân loại nút thắt cổ chai",
+                Description   = $"Dựa trên chỉ số render: {bottleneckType}. {description}",
                 FixSuggestion = fix
             });
         }

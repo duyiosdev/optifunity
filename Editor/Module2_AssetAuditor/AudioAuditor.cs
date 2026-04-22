@@ -11,7 +11,7 @@ namespace Optifunity.Editor.Module2
     /// </summary>
     public static class AudioAuditor
     {
-        public static List<PerformanceIssue> Audit()
+        public static List<PerformanceIssue> Audit(bool myScriptsOnly = false)
         {
             var issues = new List<PerformanceIssue>();
             float durationThreshold = PlatformConfig.AudioStreamingThresholdSeconds;
@@ -22,6 +22,7 @@ namespace Optifunity.Editor.Module2
             {
                 string path = AssetDatabase.GUIDToAssetPath(guid);
                 if (path.StartsWith("Packages/")) continue;
+                if (myScriptsOnly && !UI.DashboardWindow.IsUserCodePath(path)) continue;
 
                 var importer = AssetImporter.GetAtPath(path) as AudioImporter;
                 if (importer == null) continue;

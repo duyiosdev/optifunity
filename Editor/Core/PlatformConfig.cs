@@ -17,8 +17,29 @@ namespace Optifunity.Editor.Core
         private const string PREF_AUTOFIX_ENABLED = "Optifunity_AutoFixEnabled";
         private const string PREF_MAX_TEX_MOBILE  = "Optifunity_MaxTexSizeMobile";
         private const string PREF_AUDIO_STREAM_THRESHOLD = "Optifunity_AudioStreamThresholdSec";
+        private const string PREF_MY_SCRIPTS_FOLDERS     = "Optifunity_MyScriptsFolders";
 
-        // ─── Platform ──────────────────────────────────────────────────────────
+        // ─── Scan Inclusions ───────────────────────────────────────────────────
+        /// <summary>
+        /// Semicolon-separated list of folders relative to project root (e.g. Assets/Scripts;Assets/Features)
+        /// </summary>
+        public static string MyScriptsFolders
+        {
+            get => UnityEditor.EditorPrefs.GetString(PREF_MY_SCRIPTS_FOLDERS, "Assets/Scripts");
+            set => UnityEditor.EditorPrefs.SetString(PREF_MY_SCRIPTS_FOLDERS, value);
+        }
+
+        public static List<string> GetMyScriptsFoldersList()
+        {
+            string raw = MyScriptsFolders;
+            if (string.IsNullOrEmpty(raw)) return new List<string>();
+            return new List<string>(raw.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries));
+        }
+
+        public static void SetMyScriptsFoldersList(List<string> folders)
+        {
+            MyScriptsFolders = string.Join(";", folders);
+        }
         public static TargetPlatformType ActivePlatform
         {
             get => (TargetPlatformType)UnityEditor.EditorPrefs.GetInt(PREF_PLATFORM, (int)TargetPlatformType.Android);

@@ -16,12 +16,6 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [
-        {
-            "name": "com.unity.memoryprofiler",
-            "expression": "1.0.0",
-            "define": "UNITY_MEMORYPROFILER_EXISTS"
-        }
-    ],
+    "versionDefines": [],
     "noEngineReferences": false
 }

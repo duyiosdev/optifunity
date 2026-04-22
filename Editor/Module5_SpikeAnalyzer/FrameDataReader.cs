@@ -5,7 +5,7 @@ using UnityEditorInternal;
 using UnityEngine;
 
 #if UNITY_2021_1_OR_NEWER
-using Unity.Profiling.Editor;
+using UnityEditor.Profiling;
 #endif
 
 namespace Optifunity.Editor.Module5
@@ -127,31 +127,66 @@ namespace Optifunity.Editor.Module5
             int count = lastFrame - firstFrame + 1;
             var result = new FrameTimeData[count];
 
-            // Lấy frame time từ stat thay vì toàn bộ hierarchy — nhanh hơn nhiều
-            int statId = ProfilerDriver.GetStatisticsIdentifier(STAT_CPU_MAIN_THREAD);
-            if (statId < 0)
+            // ─── Primary: HierarchyFrameDataView.frameTimeMs ──────────────────
+            // This is the reliable API for per-frame CPU time from a Profiler recording.
+            // Only use for reasonable batch sizes to avoid hitching.
+            bool anyData = false;
+            int batchLimit = Mathf.Min(count, 300); // cap heavy per-frame reads
+            for (int i = 0; i < batchLimit; i++)
             {
-                // Fallback: set all 0
-                for (int i = 0; i < count; i++)
-                    result[i] = new FrameTimeData { FrameIndex = firstFrame + i };
-                return result;
-            }
+                int frameIndex = firstFrame + i;
+                result[i] = new FrameTimeData { FrameIndex = frameIndex };
 
-            var values = new float[count];
-            float maxVal;
-            ProfilerDriver.GetStatisticsValues(statId, firstFrame, 1.0f, values, out maxVal);
-
-            for (int i = 0; i < count; i++)
-            {
-                result[i] = new FrameTimeData
+                try
                 {
-                    FrameIndex = firstFrame + i,
-                    TotalMs    = values[i],
-                    IsSpike    = false // sẽ được tính sau khi có average
+#if UNITY_2021_1_OR_NEWER
+                    using var frameView = ProfilerDriver.GetHierarchyFrameDataView(
+                        frameIndex, 0,
+                        HierarchyFrameDataView.ViewModes.Default,
+                        HierarchyFrameDataView.columnTotalTime, false);
+
+                    if (frameView != null && frameView.valid && frameView.frameTimeMs > 0)
+                    {
+                        result[i].TotalMs = frameView.frameTimeMs;
+                        anyData = true;
+                    }
+#endif
+                }
+                catch { /* frame not recorded or disposed */ }
+            }
+            // Fill any remaining entries not covered by batchLimit
+            for (int i = batchLimit; i < count; i++)
+                result[i] = new FrameTimeData { FrameIndex = firstFrame + i };
+
+            // ─── Fallback: GetStatisticsValues with multiple candidate stat names ───
+            if (!anyData)
+            {
+                string[] statCandidates = {
+                    "CPU Main Thread Frame Time",
+                    "CPU Total Frame Time",
+                    "Main Thread",
+                    "CPU"
                 };
+
+                foreach (var statName in statCandidates)
+                {
+                    int statId = ProfilerDriver.GetStatisticsIdentifier(statName);
+                    if (statId < 0) continue;
+
+                    var values = new float[count];
+                    float maxVal;
+                    ProfilerDriver.GetStatisticsValues(statId, firstFrame, 1.0f, values, out maxVal);
+
+                    if (maxVal > 0)
+                    {
+                        for (int i = 0; i < count; i++)
+                            result[i].TotalMs = values[i];
+                        anyData = true;
+                        break;
+                    }
+                }
             }
 
-            // Tính rolling average để mark spikes
             MarkSpikes(result, 1.5f);
             return result;
         }

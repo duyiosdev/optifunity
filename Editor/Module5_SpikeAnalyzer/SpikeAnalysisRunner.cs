@@ -7,11 +7,16 @@ namespace Optifunity.Editor.Module5
     /// <summary>
     /// Orchestrate: FrameDataReader → BottleneckClassifier → SpikeAnalysisReport.
     /// Cache kết quả phân tích theo frameIndex để không đọc lại.
+    /// [Force Re-import: Triggered at 2026-04-20 17:26]
     /// </summary>
     public static class SpikeAnalysisRunner
     {
         // Cache: frameIndex → analysisReport
         private static readonly Dictionary<int, SpikeAnalysisReport> _cache
+            = new(capacity: 100);
+
+        // Cache: frameIndex → rawFrameSnapshot (needed for detailed Memory/Rendering tabs)
+        private static readonly Dictionary<int, FrameSnapshot> _snapshotCache
             = new(capacity: 100);
 
         private const int MAX_CACHE_SIZE = 200;
@@ -71,8 +76,19 @@ namespace Optifunity.Editor.Module5
             // ─── Cache và return ──────────────────────────────────────────────
             EvictCacheIfFull();
             _cache[frameIndex] = report;
+            _snapshotCache[frameIndex] = snapshot;
             LastAnalysis = report;
             return report;
+        }
+
+        /// <summary>
+        /// Lấy raw snapshot từ cache. Trả về null nếu chưa được phân tích.
+        /// </summary>
+        public static FrameSnapshot GetCachedSnapshot(int frameIndex)
+        {
+            if (_snapshotCache.TryGetValue(frameIndex, out var snapshot))
+                return snapshot;
+            return null;
         }
 
         /// <summary>
@@ -90,6 +106,7 @@ namespace Optifunity.Editor.Module5
         public static void ClearCache()
         {
             _cache.Clear();
+            _snapshotCache.Clear();
             LastAnalysis = null;
         }
 
@@ -102,7 +119,10 @@ namespace Optifunity.Editor.Module5
                 keys.Sort();
                 int removeCount = MAX_CACHE_SIZE / 5;
                 for (int i = 0; i < removeCount && i < keys.Count; i++)
+                {
                     _cache.Remove(keys[i]);
+                    _snapshotCache.Remove(keys[i]);
+                }
             }
         }
 

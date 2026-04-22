@@ -6,38 +6,35 @@ using UnityEditorInternal;
 namespace Optifunity.Editor.Module5
 {
     /// <summary>
-    /// Monitor ProfilerDriver.selectedFrame và xây dựng rolling buffer của frame times.
-    /// Phát event khi frame được chọn thay đổi.
+    /// Poll ProfilerDriver frame data and fire events when the selected frame changes.
+    /// Uses ProfilerHelper for the internal selectedFrame API.
     /// </summary>
     [InitializeOnLoad]
     public static class SpikeDetector
     {
         // ─── Config ────────────────────────────────────────────────────────────
-        public  const int   BUFFER_CAPACITY       = 300;  // Giữ 300 frames
-        public  const float DEFAULT_SPIKE_FACTOR  = 1.5f; // 1.5x avg = spike
-        private const float POLL_INTERVAL_SECS    = 0.1f; // poll 10x/s
+        public  const int   BUFFER_CAPACITY      = 300;
+        public  const float DEFAULT_SPIKE_FACTOR = 1.5f;
+        private const float POLL_INTERVAL_SECS   = 0.08f; // ~12x/s
 
-        // ─── State ────────────────────────────────────────────────────────────
-        private static int       _lastSelectedFrame = -1;
-        private static double    _lastPollTime;
-        private static bool      _isEnabled;
+        // ─── State ─────────────────────────────────────────────────────────────
+        private static int    _lastSelectedFrame = -1;
+        private static int    _lastKnownLastFrame = -1;  // detect new profiler data
+        private static double _lastPollTime;
+        private static bool   _isEnabled;
+        private static bool   _initialLoadDone;
 
-        // Rolling frame time buffer
         private static readonly Queue<FrameTimeData> _frameBuffer = new();
-        private static float   _rollingAverage = 16.67f;
-        public  static float   SpikeFactor     = DEFAULT_SPIKE_FACTOR;
+        private static float _rollingAverage = 16.67f;
+        public  static float SpikeFactor = DEFAULT_SPIKE_FACTOR;
 
         // ─── Events ────────────────────────────────────────────────────────────
-        /// <summary>Fired khi một frame được chọn (bất kỳ).</summary>
-        public static event Action<int, bool> OnFrameSelected;  // (frameIndex, isSpike)
+        public static event Action<int, bool>                        OnFrameSelected;
+        public static event Action<IReadOnlyList<FrameTimeData>>     OnTimelineUpdated;
 
-        /// <summary>Fired khi rolling buffer được cập nhật (timeline refresh).</summary>
-        public static event Action<IReadOnlyList<FrameTimeData>> OnTimelineUpdated;
-
-        // ─── Initialization ────────────────────────────────────────────────────
+        // ─── Init ──────────────────────────────────────────────────────────────
         static SpikeDetector()
         {
-            // InitializeOnLoad → đăng ký ngay khi Domain reload xong
             EditorApplication.update += Poll;
             _isEnabled = true;
         }
@@ -49,23 +46,16 @@ namespace Optifunity.Editor.Module5
             {
                 if (value == _isEnabled) return;
                 _isEnabled = value;
-                if (value)
-                    EditorApplication.update += Poll;
-                else
-                    EditorApplication.update -= Poll;
+                if (value) EditorApplication.update += Poll;
+                else       EditorApplication.update -= Poll;
             }
         }
 
-        // ─── Rolling Data ──────────────────────────────────────────────────────
         public static float RollingAverage => _rollingAverage;
 
         public static IReadOnlyList<FrameTimeData> FrameBuffer
         {
-            get
-            {
-                lock (_frameBuffer)
-                    return new List<FrameTimeData>(_frameBuffer);
-            }
+            get { lock (_frameBuffer) return new List<FrameTimeData>(_frameBuffer); }
         }
 
         // ─── Poll ──────────────────────────────────────────────────────────────
@@ -75,110 +65,127 @@ namespace Optifunity.Editor.Module5
             if (now - _lastPollTime < POLL_INTERVAL_SECS) return;
             _lastPollTime = now;
 
-            // ─── Kiểm tra xem Profiler có data không ──────────────────────────
             int first = ProfilerDriver.firstFrameIndex;
             int last  = ProfilerDriver.lastFrameIndex;
             if (first < 0 || last < 0) return;
 
-            // ─── Cập nhật rolling buffer nếu có frame mới ─────────────────────
-            RefreshTimeline(first, last);
+            // ── On first valid data or after Profiler reset: bulk-load all frames ──
+            bool profilerReset = last < _lastKnownLastFrame - 5;
+            if (!_initialLoadDone || profilerReset)
+            {
+                _initialLoadDone    = true;
+                _lastKnownLastFrame = last;
+                BulkLoadTimeline(first, last);
+            }
+            else if (last > _lastKnownLastFrame)
+            {
+                // Incremental: only read new frames since last poll
+                int startRead = _lastKnownLastFrame + 1;
+                _lastKnownLastFrame = last;
+                AppendToTimeline(startRead, last);
+            }
 
-            // ─── Kiểm tra frame selection thay đổi ────────────────────────────
-            int selected = ProfilerDriver.selectedFrame;
-            if (selected == _lastSelectedFrame || selected < 0) return;
+            // ── Frame selection detection ──
+            // Primary: use ProfilerHelper (handles both old/new Unity APIs)
+            int selected = ProfilerHelper.GetSelectedFrame();
+
+            // Fallback: if ProfilerHelper returns -1 (Profiler window not open),
+            // we can't auto-detect selection — don't fire spurious events
+            if (selected < 0) return;
+            if (selected == _lastSelectedFrame) return;
 
             _lastSelectedFrame = selected;
-            bool isSpike = DetectSpike(selected);
+            bool isSpike = IsFrameSpike(selected);
             OnFrameSelected?.Invoke(selected, isSpike);
         }
 
-        private static void RefreshTimeline(int first, int last)
+        // ─── Timeline Management ───────────────────────────────────────────────
+
+        /// <summary>Load ALL available frames at once (up to BUFFER_CAPACITY)</summary>
+        public static void BulkLoadTimeline(int first, int last)
         {
-            // Chỉ đọc frame mới nhất để tránh đọc lại toàn bộ buffer mỗi poll
             lock (_frameBuffer)
             {
-                int bufferLastFrame = _frameBuffer.Count > 0
-                    ? _frameBuffer.ToArray()[^1].FrameIndex
-                    : first - 1;
+                _frameBuffer.Clear();
 
-                // Nếu buffer đã cũ hoặc profiler reset → clear và rebuild
-                if (_frameBuffer.Count > 0 &&
-                    _frameBuffer.ToArray()[0].FrameIndex > first + 10)
-                {
-                    _frameBuffer.Clear();
-                    bufferLastFrame = first - 1;
-                }
+                // Clamp to buffer capacity from the END (most recent frames)
+                int count      = last - first + 1;
+                int startFrame = count > BUFFER_CAPACITY ? last - BUFFER_CAPACITY + 1 : first;
 
-                // Đọc các frames mới
-                int startRead = Math.Max(first, bufferLastFrame + 1);
-                int endRead   = last;
+                var frames = FrameDataReader.ReadFrameTimeline(startFrame, last);
+                RecalcAverage(frames);
 
-                if (startRead > endRead) return;
+                foreach (var f in frames)
+                    _frameBuffer.Enqueue(f);
+            }
+            OnTimelineUpdated?.Invoke(FrameBuffer);
+        }
 
-                // Giới hạn số frames đọc mỗi poll để tránh lag
-                int maxRead = Math.Min(20, endRead - startRead + 1);
-                startRead   = endRead - maxRead + 1;
+        private static void AppendToTimeline(int startRead, int endRead)
+        {
+            // Cap batch to avoid hitching on large gaps
+            int maxBatch = 50;
+            if (endRead - startRead + 1 > maxBatch)
+                startRead = endRead - maxBatch + 1;
 
-                var newFrames = FrameDataReader.ReadFrameTimeline(startRead, endRead);
+            var newFrames = FrameDataReader.ReadFrameTimeline(startRead, endRead);
+            lock (_frameBuffer)
+            {
                 foreach (var f in newFrames)
                 {
                     _frameBuffer.Enqueue(f);
                     while (_frameBuffer.Count > BUFFER_CAPACITY)
                         _frameBuffer.Dequeue();
                 }
-
-                // Tính lại rolling average
-                if (_frameBuffer.Count > 0)
-                {
-                    float sum = 0; int cnt = 0;
-                    foreach (var f in _frameBuffer)
-                        if (f.TotalMs > 0.1f) { sum += f.TotalMs; cnt++; }
-                    if (cnt > 0) _rollingAverage = sum / cnt;
-                }
+                RecalcAverageFromBuffer();
             }
-
             OnTimelineUpdated?.Invoke(FrameBuffer);
         }
 
-        private static bool DetectSpike(int frameIndex)
+        private static void RecalcAverage(FrameTimeData[] frames)
         {
-            // Tìm frame trong buffer
+            float sum = 0; int cnt = 0;
+            foreach (var f in frames)
+                if (f.TotalMs > 0.1f) { sum += f.TotalMs; cnt++; }
+            if (cnt > 0) _rollingAverage = sum / cnt;
+        }
+
+        private static void RecalcAverageFromBuffer()
+        {
+            float sum = 0; int cnt = 0;
+            foreach (var f in _frameBuffer)
+                if (f.TotalMs > 0.1f) { sum += f.TotalMs; cnt++; }
+            if (cnt > 0) _rollingAverage = sum / cnt;
+        }
+
+        private static bool IsFrameSpike(int frameIndex)
+        {
             lock (_frameBuffer)
             {
                 foreach (var f in _frameBuffer)
                     if (f.FrameIndex == frameIndex)
                         return f.TotalMs > _rollingAverage * SpikeFactor;
             }
-
-            // Nếu không có trong buffer, đọc từ profiler
-            var newFrames = FrameDataReader.ReadFrameTimeline(frameIndex, frameIndex);
-            if (newFrames.Length > 0)
-                return newFrames[0].TotalMs > _rollingAverage * SpikeFactor;
-
-            return false;
+            // Not in buffer yet — read it
+            var frames = FrameDataReader.ReadFrameTimeline(frameIndex, frameIndex);
+            return frames.Length > 0 && frames[0].TotalMs > _rollingAverage * SpikeFactor;
         }
 
-        /// <summary>Reset toàn bộ buffer (ví dụ khi Profiler Clear)</summary>
         public static void Reset()
         {
             lock (_frameBuffer) _frameBuffer.Clear();
-            _lastSelectedFrame = -1;
-            _rollingAverage    = 16.67f;
+            _lastSelectedFrame  = -1;
+            _lastKnownLastFrame = -1;
+            _initialLoadDone    = false;
+            _rollingAverage     = 16.67f;
         }
 
-        /// <summary>Lấy FrameTimeData của frame cụ thể từ buffer</summary>
         public static bool TryGetFrameData(int frameIndex, out FrameTimeData data)
         {
             lock (_frameBuffer)
             {
                 foreach (var f in _frameBuffer)
-                {
-                    if (f.FrameIndex == frameIndex)
-                    {
-                        data = f;
-                        return true;
-                    }
-                }
+                    if (f.FrameIndex == frameIndex) { data = f; return true; }
             }
             data = default;
             return false;

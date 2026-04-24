@@ -3,7 +3,7 @@
 [![Unity 2021.3+](https://img.shields.io/badge/Unity-2021.3%2B-black.svg)](https://unity3d.com)
 [![URP](https://img.shields.io/badge/Pipeline-URP-blue.svg)](https://docs.unity3d.com/Packages/com.unity.render-pipelines.universal@latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Modules](https://img.shields.io/badge/Modules-5-brightgreen.svg)](#tổng-quan)
+[![Modules](https://img.shields.io/badge/Modules-6-brightgreen.svg)](#tổng-quan)
 
 > **Hệ thống plugin phân tích hiệu năng tự động** cho Unity URP.  
 > Phát hiện bottleneck, audit assets, phân tích memory, và tự động phân loại frame spike ngay trong Editor.
@@ -12,15 +12,16 @@
 
 ## Tổng Quan
 
-Optifunity tích hợp **5 phân hệ** hoạt động song song:
+Optifunity tích hợp **6 phân hệ**:
 
 | # | Phân Hệ | Phạm Vi | Trigger |
 |---|---------|---------|---------|
-| 1 | **Roslyn Code Analyzer** | GC Alloc, Boxing, Memory Leak trong C# | Scan thủ công |
+| 1 | **Roslyn Code Analyzer** | GC Alloc, Boxing, Memory Leak + anti-pattern + resource management trong C# | Scan thủ công |
 | 2 | **Asset Auditor** | Texture / Mesh / Audio theo tiêu chuẩn platform | Scan thủ công + Auto khi import |
-| 3 | **Memory Snapshot Profiler** | Baseline/Peak/Teardown snapshot, Differential Analysis | Play Mode |
+| 3 | **Memory Snapshot Profiler** | Baseline/Peak/Teardown snapshot, Differential Analysis *(đang để trống trong mã hiện tại)* | Play Mode |
 | 4 | **URP Diagnostics** | Render pipeline PC vs Mobile, SRP Batcher, Draw Calls | Scan thủ công |
-| 5 | **🔬 Spike Analyzer** | Tự động phân tích 11 loại bottleneck khi chọn frame trong Profiler | **Real-time, tự động** |
+| 5 | **🔬 Spike Analyzer** | Tự động phân tích bottleneck khi chọn frame trong Profiler | **Real-time, tự động** |
+| 6 | **📦 Build Analyzer** | Quét dependency build để liệt kê Material/Shader thực sự đi vào build | Scan thủ công |
 
 ---
 
@@ -50,7 +51,7 @@ Optifunity tích hợp **5 phân hệ** hoạt động song song:
 Tools > Optifunity > Dashboard    (Ctrl+Shift+O)
 ```
 
-Nhấn **▶ Full Scan** để chạy toàn bộ 4 module tĩnh (Code + Assets + URP + Memory Budget).
+Nhấn **▶ Full Scan** để chạy các scan tĩnh chính (Code + Assets + URP).
 
 ### Spike Analyzer *(tính năng mới)*
 
@@ -80,6 +81,8 @@ d:\Optifunity\
     │   ├── GCAllocAnalyzer.cs             Phát hiện GC trong Update()
     │   ├── BoxingAnalyzer.cs              Phát hiện boxing value types
     │   ├── MemLeakAnalyzer.cs             Phát hiện memory leak patterns
+    │   ├── PerformanceAntiPatternAnalyzer.cs  Find/GetComponent, Camera.main, tag compare...
+    │   ├── ResourceManagementAnalyzer.cs      Resources.Load, event leak, Instantiate/Destroy trong loop
     │   └── CodeAnalysisRunner.cs
     ├── Module2_AssetAuditor/
     │   ├── TextureAuditor.cs              Compression, POT, MaxSize, MipMap
@@ -87,26 +90,27 @@ d:\Optifunity\
     │   ├── AudioAuditor.cs                Streaming threshold, Vorbis, Force Mono
     │   ├── AssetAuditRunner.cs
     │   └── AssetPostprocessorHook.cs      Auto-apply khi import
-    ├── Module3_MemoryProfiler/
-    │   ├── SnapshotCapturer.cs            Chụp Baseline/Peak/Teardown
-    │   ├── SnapshotAnalyzer.cs            Differential Analysis
-    │   └── MemoryBudgetValidator.cs       So sánh vs budget
+    ├── Module3_MemoryProfiler/            (hiện đang trống trong mã)
     ├── Module4_URPDiagnostics/
     │   ├── URPAssetScanner.cs             Đọc URP Asset properties
     │   ├── URPRecommendationEngine.cs     Ma trận PC vs Mobile
     │   ├── SRPBatcherChecker.cs           CBUFFER compatibility
     │   └── DrawCallAnalyzer.cs            SetPass/Draw Call bottleneck
-    ├── Module5_SpikeAnalyzer/             ← PHÂN HỆ MỚI
+    ├── Module5_SpikeAnalyzer/
     │   ├── ProfilerSample.cs              Data models (tree + lookup)
     │   ├── FrameDataReader.cs             HierarchyFrameDataView reader
-    │   ├── BottleneckClassifier.cs        11 case checkers
-    │   ├── SpikeDetector.cs               Poll 10×/s, rolling buffer
-    │   └── SpikeAnalysisRunner.cs         Orchestrator + cache
+    │   ├── BottleneckClassifier.cs        Bottleneck checkers + confidence
+    │   ├── SpikeDetector.cs               Poll profiler + rolling buffer
+    │   ├── SpikeAnalysisRunner.cs         Orchestrator + cache
+    │   ├── EditorCodeLocator.cs           Map profiler sample -> script/shader path
+    │   └── ProfilerHelper.cs              Cross-version selected-frame helper
+    ├── Module6_BuildAnalyzer/
+    │   └── BuildAssetScanner.cs           Quét dependency build (Materials/Shaders)
     └── UI/
         ├── OptifunityStyles.cs            Dark theme styles
-        ├── DashboardWindow.cs             6-tab main window
+        ├── DashboardWindow.cs             6-tab main window (gồm Spike + Build)
         ├── ReportWindow.cs                Filter/sort/export report viewer
-        └── SpikeAnalyzerWindow.cs         Timeline + analysis UI
+        └── SpikeAnalyzerWindow.cs         Timeline + diagnosis + root-cause UI
 ```
 
 ---
@@ -115,7 +119,7 @@ d:\Optifunity\
 
 ### Module 1: Code Analyzer
 
-Phát hiện các pattern nguy hiểm bằng Regex trên toàn bộ `.cs` trong `Assets/`:
+Phát hiện các pattern nguy hiểm bằng Regex trên toàn bộ `.cs` trong `Assets/` (GC/Boxing/MemLeak + anti-pattern + resource management):
 
 | Pattern | Ví dụ | Severity |
 |---------|-------|---------|
@@ -151,16 +155,7 @@ Phát hiện các pattern nguy hiểm bằng Regex trên toàn bộ `.cs` trong 
 
 ### Module 3: Memory Snapshot
 
-```
-1. Vào Play Mode
-2. Tại scene start → nhấn [📷 Baseline]
-3. Tại điểm tải nặng nhất → nhấn [📷 Peak Load]
-4. Trước khi thoát scene → nhấn [📷 Teardown]
-5. Differential Analysis = Teardown − Baseline
-6. Nếu delta > 10% → cảnh báo memory leak
-```
-
-> ⚠ Yêu cầu package `com.unity.memoryprofiler >= 1.1.0`
+> ⚠ Module này đang được giữ chỗ trong codebase hiện tại (thư mục tồn tại nhưng chưa có file triển khai). README sẽ được cập nhật lại ngay khi module được kích hoạt lại.
 
 ### Module 4: URP Diagnostics
 
@@ -197,9 +192,9 @@ Tự động phân loại **11 loại bottleneck** khi click bất kỳ frame n�
 **Tính năng SpikeAnalyzerWindow:**
 - **Timeline chart** 300 frames — click để phân tích, Shift+Click để set Compare frame
 - **Auto-Follow** — tự động cập nhật khi chọn frame trong Profiler
-- **4 analysis tabs**: Bottleneck (confidence score + recommendations) | Samples | GC Alloc | Compare
+- **Frame Diagnosis** — tóm tắt workload CPU/GPU, spike ratio, dominant contributors và điểm cần kiểm tra đầu tiên
+- **6 analysis tabs**: Bottleneck | Root Cause | Samples | GC Alloc | Rendering | Compare
 - **Frame Comparison** — so sánh side-by-side 2 frames bất kỳ
-- **Export** — kết quả phân tích có thể export qua Report Viewer
 
 ---
 
@@ -207,12 +202,12 @@ Tự động phân loại **11 loại bottleneck** khi click bất kỳ frame n�
 
 | Tab | Nội dung |
 |-----|---------|
-| **Overview** | Health Score (0–100), summary cards 5 module, top errors |
-| **Code** | GC Alloc + Boxing + Memory Leak issues |
+| **Overview** | Health Score (0–100), summary cards, top errors |
+| **Code** | GC Alloc + Boxing + Memory Leak + anti-pattern/resource-management issues |
 | **Assets** | Texture + Mesh + Audio audit issues |
-| **Memory** | Snapshot controls + budget comparison |
 | **URP** | URP settings + SRP Batcher + Draw Call issues |
-| **🔬 Spike** | Profiler status, last frame analysis, link tới SpikeAnalyzerWindow |
+| **🔬 Spike** | Profiler status, frame diagnosis, bottleneck/root-cause analysis |
+| **📦 Build** | Danh sách Material/Shader thực tế đi vào build |
 
 ---
 
@@ -248,7 +243,7 @@ Health Score = max(0, 100 − errors×10 − warnings×3 − infos×0.5)
 Window > General > Test Runner > EditMode > Run All
 ```
 
-**18 test cases** covering: PlatformConfig budget, GCAllocAnalyzer patterns, BoxingAnalyzer, MemLeakAnalyzer patterns, ReportEngine HealthScore.
+**20 test cases** covering: PlatformConfig budget, GCAllocAnalyzer patterns, BoxingAnalyzer, MemLeakAnalyzer patterns, ReportEngine HealthScore.
 
 ---
 

@@ -1,12 +1,12 @@
 {
-  "name": "com.antigravity.optifunity",
+  "name": "com.h.optifunity",
   "version": "1.0.0",
   "displayName": "Optifunity - URP Performance Analyzer",
   "description": "Automated Unity URP performance analysis plugin. Detects GC allocations, boxing, memory leaks, audits assets (textures, meshes, audio), captures memory snapshots, and diagnoses URP render pipeline configuration for PC and mobile targets.",
   "unity": "2021.3",
   "unityRelease": "0f1",
-  "documentationUrl": "https://github.com/antigravity/optifunity",
-  "changelogUrl": "https://github.com/antigravity/optifunity/CHANGELOG.md",
+  "documentationUrl": "https://github.com/duyiosdev/optifunity",
+  "changelogUrl": "https://github.com/duyiosdev/optifunity/blob/main/CHANGELOG.md",
   "keywords": [
     "performance",
     "optimization",
@@ -18,9 +18,8 @@
     "ios"
   ],
   "author": {
-    "name": "Antigravity",
-    "email": "dev@antigravity.ai",
-    "url": "https://antigravity.ai"
+    "name": "duyiosdev",
+    "url": "https://github.com/duyiosdev/optifunity"
   },
   "dependencies": {}
 }

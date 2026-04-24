@@ -7,15 +7,12 @@ namespace Optifunity.Editor.Module1
 {
     /// <summary>
     /// Điều phối toàn bộ quá trình phân tích mã nguồn C#:
-    /// tìm tất cả scripts, chạy 3 analyzer, tổng hợp về ReportEngine.
+    /// tìm tất cả scripts, chạy các bộ analyzer (Regex-based), tổng hợp về ReportEngine.
     /// </summary>
     public static class CodeAnalysisRunner
     {
         private static bool _isRunning;
 
-        /// <summary>
-        /// Chạy toàn bộ phân tích mã nguồn và trả về danh sách issues
-        /// </summary>
         public static List<Core.PerformanceIssue> RunAll(bool showProgress = true, bool myScriptsOnly = false)
         {
             if (_isRunning)
@@ -37,13 +34,9 @@ namespace Optifunity.Editor.Module1
                     string guid      = guids[idx];
                     string assetPath = AssetDatabase.GUIDToAssetPath(guid);
 
-                    // Always skip generated code & UPM packages
-                    if (assetPath.Contains("/Packages/") ||
-                        assetPath.Contains("\\Packages\\") ||
-                        assetPath.Contains(".g.cs"))
+                    if (assetPath.Contains("/Packages/") || assetPath.Contains("\\Packages\\") || assetPath.Contains(".g.cs"))
                         continue;
 
-                    // My Scripts Only: only include folders in the whitelist
                     if (myScriptsOnly && !UI.DashboardWindow.IsUserCodePath(assetPath))
                         continue;
 
@@ -64,19 +57,25 @@ namespace Optifunity.Editor.Module1
                     try { lines = File.ReadAllLines(fullPath); }
                     catch { continue; }
 
-                    // ─── Chạy 3 analyzer ──────────────────────────────────────
-                    var gcIssues    = GCAllocAnalyzer.Analyze(fullPath, lines);
-                    var boxIssues   = BoxingAnalyzer.Analyze(fullPath, lines);
-                    var leakIssues  = MemLeakAnalyzer.Analyze(fullPath, lines);
+                    // ─── Chạy các bộ phân tích (Regex-based) ───────────────────────────
+                    var gcIssues     = GCAllocAnalyzer.Analyze(fullPath, lines);
+                    var boxIssues    = BoxingAnalyzer.Analyze(fullPath, lines);
+                    var leakIssues   = MemLeakAnalyzer.Analyze(fullPath, lines);
+                    var antiIssues   = PerformanceAntiPatternAnalyzer.Analyze(fullPath, lines);
+                    var resourceIssues = ResourceManagementAnalyzer.Analyze(fullPath, lines);
 
                     // Gán AssetPath cho tất cả issues
                     SetAssetPath(gcIssues,   assetPath);
                     SetAssetPath(boxIssues,  assetPath);
                     SetAssetPath(leakIssues, assetPath);
+                    SetAssetPath(antiIssues, assetPath);
+                    SetAssetPath(resourceIssues, assetPath);
 
                     allIssues.AddRange(gcIssues);
                     allIssues.AddRange(boxIssues);
                     allIssues.AddRange(leakIssues);
+                    allIssues.AddRange(antiIssues);
+                    allIssues.AddRange(resourceIssues);
                 }
             }
             finally
@@ -85,7 +84,7 @@ namespace Optifunity.Editor.Module1
                 if (showProgress) EditorUtility.ClearProgressBar();
             }
 
-            Debug.Log($"[Optifunity] Code Analysis hoàn tất: {allIssues.Count} issues trong tổng số files được quét.");
+            Debug.Log($"[Optifunity] Code Analysis hoàn tất: {allIssues.Count} issues.");
             return allIssues;
         }
 
@@ -98,9 +97,6 @@ namespace Optifunity.Editor.Module1
             }
         }
 
-        /// <summary>
-        /// Ping / select asset trong Project window khi double-click issue
-        /// </summary>
         public static void PingAsset(string assetPath)
         {
             if (string.IsNullOrEmpty(assetPath)) return;

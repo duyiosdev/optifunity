@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
@@ -23,21 +24,29 @@ namespace Optifunity.Editor.Module5.UI
         private SpikeAnalysisReport _compareReport;
 
         private Vector2 _scrollReport;
-        private Vector2 _scrollSamples;
 
         private bool _autoFollowProfiler = true;
-        private bool _showComparision;
-        private bool _showAllSamples;
-        private bool _showRawGCAlloc = true;
         private float _spikeThreshold = SpikeDetector.DEFAULT_SPIKE_FACTOR;
 
         // Timeline chart state
         private Rect  _timelineRect;
         private int   _hoveredFrameIndex = -1;
 
+        // Cache locate-path để tránh FindAssets/AssetDatabase lặp lại mỗi repaint
+        private readonly Dictionary<string, string> _samplePathCache = new();
+        private readonly Dictionary<int, Texture2D> _cardTextureCache = new();
+
         // Tabs trong Analysis panel
+        private const int TAB_BOTTLENECK = 0;
+        private const int TAB_ROOT_CAUSE = 1;
+        private const int TAB_SAMPLES    = 2;
+        private const int TAB_GC_ALLOC   = 3;
+        private const int TAB_RENDERING  = 4;
+        private const int TAB_COMPARE    = 5;
+
         private int _analysisTab;
-        private string[] _analysisTabs = { "Bottleneck", "Samples", "GC Alloc", "Rendering", "Compare" };
+        private readonly string[] _analysisTabs =
+            { "Bottleneck", "Root Cause", "Samples", "GC Alloc", "Rendering", "Compare" };
 
         // ─── Menu ─────────────────────────────────────────────────────────────
         [MenuItem("Tools/Optifunity/Spike Analyzer", priority = 10)]
@@ -71,6 +80,8 @@ namespace Optifunity.Editor.Module5.UI
             }
 
             _timeline = SpikeDetector.FrameBuffer;
+            _samplePathCache.Clear();
+            EditorCodeLocator.Initialize();
 
             // Analyze currently selected frame if ProfilerWindow is open
             int curFrame = ProfilerHelper.GetSelectedFrame();
@@ -81,6 +92,13 @@ namespace Optifunity.Editor.Module5.UI
         {
             SpikeDetector.OnFrameSelected   -= OnProfilerFrameSelected;
             SpikeDetector.OnTimelineUpdated -= OnTimelineUpdated;
+
+            foreach (var tex in _cardTextureCache.Values)
+            {
+                if (tex != null) DestroyImmediate(tex);
+            }
+            _cardTextureCache.Clear();
+            _samplePathCache.Clear();
         }
 
         private void OnProfilerFrameSelected(int frameIndex, bool isSpike)
@@ -114,6 +132,16 @@ namespace Optifunity.Editor.Module5.UI
         {
             _currentReport = SpikeAnalysisRunner.AnalyzeFrame(frameIndex);
             Repaint();
+        }
+
+        private string GetCachedSamplePath(string sampleName)
+        {
+            if (string.IsNullOrEmpty(sampleName)) return null;
+            if (_samplePathCache.TryGetValue(sampleName, out var cached)) return cached;
+
+            var path = EditorCodeLocator.FindScriptPath(sampleName);
+            _samplePathCache[sampleName] = path;
+            return path;
         }
 
         // ─── Draw ─────────────────────────────────────────────────────────────
@@ -163,6 +191,7 @@ namespace Optifunity.Editor.Module5.UI
                 {
                     SpikeAnalysisRunner.ClearCache();
                     SpikeDetector.Reset();
+                    _samplePathCache.Clear();
                     _currentReport = null;
                     _compareReport = null;
                 }
@@ -291,7 +320,7 @@ namespace Optifunity.Editor.Module5.UI
                         // Shift+click → set compare frame
                         _compareFrameIndex = clickedFrame;
                         _compareReport     = SpikeAnalysisRunner.AnalyzeFrame(clickedFrame);
-                        _analysisTab       = 3; // Switch to Compare tab
+                        _analysisTab       = TAB_COMPARE; // Switch to Compare tab
                     }
                     else
                     {
@@ -371,6 +400,13 @@ namespace Optifunity.Editor.Module5.UI
 
             // Frame summary bar
             DrawFrameSummaryBar(_currentReport);
+
+            // Diagnosis summary (workload + dominant contributors + first investigation point)
+            DrawFrameDiagnosis(_currentReport);
+
+            // Breakdown bar
+            DrawBreakdownBar(_currentReport);
+
             OptifunityStyles.DrawSeparator();
 
             // Analysis tabs
@@ -385,11 +421,24 @@ namespace Optifunity.Editor.Module5.UI
 
             switch (_analysisTab)
             {
-                case 0: DrawBottleneckTab(_currentReport); break;
-                case 1: DrawSamplesTab(_currentReport.TopSlowSamples, "Slowest Samples (by CPU time)"); break;
-                case 2: DrawSamplesTab(_currentReport.TopGCAllocSamples, "GC Allocators (by bytes)"); break;
-                case 3: DrawRenderingTab(_currentReport); break;
-                case 4: DrawCompareTab(); break;
+                case TAB_BOTTLENECK:
+                    DrawBottleneckTab(_currentReport);
+                    break;
+                case TAB_ROOT_CAUSE:
+                    DrawRootCauseTab(_currentReport);
+                    break;
+                case TAB_SAMPLES:
+                    DrawSamplesTab(_currentReport.TopSlowSamples, "Slowest Samples (by CPU time)");
+                    break;
+                case TAB_GC_ALLOC:
+                    DrawSamplesTab(_currentReport.TopGCAllocSamples, "GC Allocators (by bytes)");
+                    break;
+                case TAB_RENDERING:
+                    DrawRenderingTab(_currentReport);
+                    break;
+                case TAB_COMPARE:
+                    DrawCompareTab();
+                    break;
             }
 
             GUILayout.Space(8);
@@ -445,6 +494,198 @@ namespace Optifunity.Editor.Module5.UI
                     GUILayout.Width(170));
             }
         }
+
+        private void DrawFrameDiagnosis(SpikeAnalysisReport r)
+        {
+            var snapshot = SpikeAnalysisRunner.GetCachedSnapshot(r.FrameIndex);
+            float avg = Mathf.Max(0.01f, r.AverageFrameMs > 0 ? r.AverageFrameMs : SpikeDetector.RollingAverage);
+            float ratio = r.FrameTotalMs / avg;
+            float gpuMs = snapshot != null && snapshot.IsValid ? snapshot.TotalGpuTimeMs : 0f;
+
+            string workloadSummary = gpuMs > 0.1f
+                ? (gpuMs > r.FrameTotalMs * 1.2f
+                    ? "GPU-bound"
+                    : r.FrameTotalMs > gpuMs * 1.2f
+                        ? "CPU-bound"
+                        : "Balanced")
+                : "CPU-focused (no GPU time data)";
+
+            var dominant = (r.TopSlowSamples ?? new List<ProfilerSample>())
+                .Where(s => s.TotalTimeMs > 0.01f)
+                .OrderByDescending(s => s.PercentOfFrame)
+                .ThenByDescending(s => s.TotalTimeMs)
+                .Take(3)
+                .ToList();
+
+            var first = dominant.FirstOrDefault();
+            string firstPath = first != null ? GetCachedSamplePath(first.Name) : null;
+            string firstTarget = first == null
+                ? "Chưa đủ dữ liệu sample"
+                : !string.IsNullOrEmpty(firstPath)
+                    ? firstPath
+                    : $"{first.Name} (Unity/engine marker hoặc không map được asset)";
+
+            DrawCard(() =>
+            {
+                GUILayout.Label("FRAME DIAGNOSIS", new GUIStyle(OptifunityStyles.StyleIssueTitle)
+                {
+                    normal = { textColor = OptifunityStyles.AccentBlue },
+                    fontSize = 12
+                });
+
+                GUILayout.Space(3);
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    DrawDiagnosisMetric("Workload", workloadSummary, 220);
+                    DrawDiagnosisMetric("Spike Ratio", $"{ratio:F2}x avg", 120);
+                    DrawDiagnosisMetric("Problem", r.IsSpike ? $"Yes ({r.Severity})" : "No", 120);
+                    DrawDiagnosisMetric("Confidence", $"{r.PrimaryConfidence * 100:F0}%", 110);
+                    GUILayout.FlexibleSpace();
+                }
+
+                GUILayout.Space(4);
+                GUILayout.Label("Dominant Contributors (Top 3)", OptifunityStyles.StyleSubtitle);
+
+                if (dominant.Count == 0)
+                {
+                    GUILayout.Label("  Không có sample đủ dữ liệu để xếp hạng.", OptifunityStyles.StyleIssueDesc);
+                }
+                else
+                {
+                    for (int i = 0; i < dominant.Count; i++)
+                    {
+                        var s = dominant[i];
+                        string weight = s.PercentOfFrame >= 20f
+                            ? "Major"
+                            : s.PercentOfFrame >= 10f
+                                ? "Significant"
+                                : "Minor";
+
+                        using (new EditorGUILayout.HorizontalScope())
+                        {
+                            GUILayout.Label($" {i + 1}.", new GUIStyle(EditorStyles.boldLabel)
+                            {
+                                normal = { textColor = OptifunityStyles.AccentBlue },
+                                fontSize = 10
+                            }, GUILayout.Width(22));
+
+                            GUILayout.Label($"{s.Name}", new GUIStyle(EditorStyles.label)
+                            {
+                                normal = { textColor = OptifunityStyles.TextPrimary },
+                                fontSize = 10
+                            }, GUILayout.Width(260));
+
+                            GUILayout.Label($"{s.TotalTimeMs:F2}ms", new GUIStyle(EditorStyles.label)
+                            {
+                                normal = { textColor = OptifunityStyles.ColorWarning },
+                                fontSize = 10
+                            }, GUILayout.Width(62));
+
+                            GUILayout.Label($"{s.PercentOfFrame:F1}%", new GUIStyle(EditorStyles.label)
+                            {
+                                normal = { textColor = OptifunityStyles.ColorInfo },
+                                fontSize = 10
+                            }, GUILayout.Width(55));
+
+                            OptifunityStyles.DrawBadge(weight,
+                                weight == "Major"
+                                    ? OptifunityStyles.ColorError
+                                    : weight == "Significant"
+                                        ? OptifunityStyles.ColorWarning
+                                        : OptifunityStyles.ColorInfo);
+
+                            GUILayout.FlexibleSpace();
+                        }
+                    }
+                }
+
+                GUILayout.Space(4);
+                GUILayout.Label("First place to inspect", OptifunityStyles.StyleSubtitle);
+                GUILayout.Label($"  {firstTarget}", new GUIStyle(OptifunityStyles.StyleIssueDesc)
+                {
+                    wordWrap = true,
+                    normal = { textColor = new Color(0.8f, 0.9f, 0.75f) }
+                });
+            }, new Color(0.1f, 0.16f, 0.20f));
+        }
+
+        private void DrawDiagnosisMetric(string label, string value, float width)
+        {
+            using (new EditorGUILayout.VerticalScope(GUILayout.Width(width)))
+            {
+                GUILayout.Label(label, new GUIStyle(EditorStyles.miniLabel)
+                {
+                    normal = { textColor = OptifunityStyles.TextSecondary }
+                });
+                GUILayout.Label(value, new GUIStyle(EditorStyles.boldLabel)
+                {
+                    normal = { textColor = OptifunityStyles.TextPrimary },
+                    fontSize = 11
+                });
+            }
+        }
+
+        private void DrawBreakdownBar(SpikeAnalysisReport r)
+        {
+            if (r.CategoryBreakdown == null || r.CategoryBreakdown.Count == 0) return;
+
+            using (new EditorGUILayout.VerticalScope(OptifunityStyles.StyleCard))
+            {
+                var rect = GUILayoutUtility.GetRect(0, 16, GUILayout.ExpandWidth(true));
+                EditorGUI.DrawRect(rect, new Color(0.12f, 0.12f, 0.12f));
+
+                float currentX = rect.x;
+                foreach (var b in r.CategoryBreakdown)
+                {
+                    float width = rect.width * b.Percentage;
+                    var segmentRect = new Rect(currentX, rect.y, width, rect.height);
+                    Color catColor = GetCategoryColor(b.Category);
+                    EditorGUI.DrawRect(segmentRect, catColor);
+                    
+                    // Tooltip-like label if wide enough
+                    if (width > 40)
+                    {
+                        var labelStyle = new GUIStyle(EditorStyles.miniLabel) 
+                        { 
+                            alignment = TextAnchor.MiddleCenter, 
+                            normal = { textColor = Color.white },
+                            fontSize = 9
+                        };
+                        GUI.Label(segmentRect, $"{b.Percentage * 100:F0}%", labelStyle);
+                    }
+                    
+                    currentX += width;
+                }
+
+                GUILayout.Space(2);
+                
+                // Legend
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    foreach (var b in r.CategoryBreakdown.Take(5)) // Show top 5 in legend
+                    {
+                        var dotStyle = new GUIStyle(EditorStyles.label) { normal = { textColor = GetCategoryColor(b.Category)} };
+                        GUILayout.Label("●", dotStyle, GUILayout.Width(12));
+                        GUILayout.Label($"{b.Category} ({b.Percentage * 100:F0}%)", EditorStyles.miniLabel);
+                        GUILayout.Space(8);
+                    }
+                }
+            }
+        }
+
+        private Color GetCategoryColor(ProfilerCategory cat) => cat switch
+        {
+            ProfilerCategory.Physics           => new Color(0.3f, 0.6f, 0.9f),
+            ProfilerCategory.Rendering         => new Color(0.9f, 0.4f, 0.4f),
+            ProfilerCategory.ScriptUpdate       => new Color(0.4f, 0.9f, 0.4f),
+            ProfilerCategory.GarbageCollection => new Color(0.9f, 0.7f, 0.2f),
+            ProfilerCategory.Animation         => new Color(0.6f, 0.4f, 0.9f),
+            ProfilerCategory.UI                => new Color(0.2f, 0.8f, 0.8f),
+            ProfilerCategory.Audio             => new Color(0.8f, 0.3f, 0.8f),
+            ProfilerCategory.AssetLoading      => new Color(1.0f, 0.5f, 0.1f),
+            ProfilerCategory.Overhead          => new Color(0.5f, 0.5f, 0.5f),
+            _                                  => new Color(0.3f, 0.3f, 0.3f)
+        };
 
         // ─── Bottleneck Tab ────────────────────────────────────────────────────
         private void DrawBottleneckTab(SpikeAnalysisReport r)
@@ -583,6 +824,7 @@ namespace Optifunity.Editor.Module5.UI
                     GUILayout.Label("GC Alloc", OptifunityStyles.StyleIssueTitle, GUILayout.Width(75));
                     GUILayout.Label("Calls", OptifunityStyles.StyleIssueTitle, GUILayout.Width(50));
                     GUILayout.Label("% Frame", OptifunityStyles.StyleIssueTitle, GUILayout.Width(60));
+                    GUILayout.Label("Locate", OptifunityStyles.StyleIssueTitle, GUILayout.Width(55));
                 }
             }, OptifunityStyles.BgHeader);
 
@@ -639,6 +881,122 @@ namespace Optifunity.Editor.Module5.UI
                             new GUIStyle(EditorStyles.label)
                             { normal = { textColor = OptifunityStyles.ColorInfo }, fontSize = 10 },
                             GUILayout.Width(60));
+
+                        // Locate button
+                        string path = GetCachedSamplePath(s.Name);
+                        if (!string.IsNullOrEmpty(path))
+                        {
+                            if (GUILayout.Button("Ping", EditorStyles.miniButton, GUILayout.Width(50), GUILayout.Height(15)))
+                            {
+                                var script = AssetDatabase.LoadAssetAtPath<MonoScript>(path);
+                                if (script != null) EditorGUIUtility.PingObject(script);
+                            }
+                        }
+                        else
+                        {
+                            GUILayout.Space(54);
+                        }
+                    }
+                }, rowBg);
+            }
+        }
+
+        // ─── Root Cause Tab ────────────────────────────────────────────────────
+        private void DrawRootCauseTab(SpikeAnalysisReport r)
+        {
+            GUILayout.Label("  Root Cause Ranking — vấn đề nằm ở đâu?", OptifunityStyles.StyleHeader);
+
+            var topByCost = (r.TopSlowSamples ?? new List<ProfilerSample>())
+                .Where(s => s.TotalTimeMs > 0.01f)
+                .OrderByDescending(s => s.PercentOfFrame)
+                .ThenByDescending(s => s.TotalTimeMs)
+                .Take(12)
+                .ToList();
+
+            if (topByCost.Count == 0)
+            {
+                GUILayout.Space(10);
+                GUILayout.Label("  Không có dữ liệu root-cause cho frame này.", OptifunityStyles.StyleIssueDesc);
+                return;
+            }
+
+            DrawCard(() =>
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    GUILayout.Label("Source", OptifunityStyles.StyleIssueTitle, GUILayout.Width(260));
+                    GUILayout.Label("Category", OptifunityStyles.StyleIssueTitle, GUILayout.Width(82));
+                    GUILayout.Label("Total", OptifunityStyles.StyleIssueTitle, GUILayout.Width(55));
+                    GUILayout.Label("% Frame", OptifunityStyles.StyleIssueTitle, GUILayout.Width(58));
+                    GUILayout.Label("GC", OptifunityStyles.StyleIssueTitle, GUILayout.Width(62));
+                    GUILayout.Label("Where", OptifunityStyles.StyleIssueTitle, GUILayout.Width(210));
+                    GUILayout.Label("Locate", OptifunityStyles.StyleIssueTitle, GUILayout.Width(50));
+                }
+            }, OptifunityStyles.BgHeader);
+
+            for (int i = 0; i < topByCost.Count; i++)
+            {
+                var s = topByCost[i];
+                string locatePath = GetCachedSamplePath(s.Name);
+                string where = !string.IsNullOrEmpty(locatePath)
+                    ? locatePath
+                    : "Unity/engine marker";
+
+                Color rowBg = i % 2 == 0
+                    ? new Color(0.16f, 0.18f, 0.20f)
+                    : new Color(0.13f, 0.15f, 0.17f);
+
+                DrawCard(() =>
+                {
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        string source = s.PercentOfFrame >= 20f ? $"⚠ {s.Name}" : s.Name;
+                        GUILayout.Label(source, new GUIStyle(EditorStyles.label)
+                        {
+                            normal = { textColor = OptifunityStyles.TextPrimary },
+                            fontSize = 10
+                        }, GUILayout.Width(260));
+
+                        GUILayout.Label(s.Category.ToString(), new GUIStyle(EditorStyles.miniLabel)
+                        {
+                            normal = { textColor = GetCategoryColor(s.Category) }
+                        }, GUILayout.Width(82));
+
+                        GUILayout.Label($"{s.TotalTimeMs:F2}", new GUIStyle(EditorStyles.label)
+                        {
+                            normal = { textColor = s.TotalTimeMs > 5f ? OptifunityStyles.ColorWarning : OptifunityStyles.TextSecondary },
+                            fontSize = 10
+                        }, GUILayout.Width(55));
+
+                        GUILayout.Label($"{s.PercentOfFrame:F1}%", new GUIStyle(EditorStyles.label)
+                        {
+                            normal = { textColor = OptifunityStyles.ColorInfo },
+                            fontSize = 10
+                        }, GUILayout.Width(58));
+
+                        GUILayout.Label(s.GCAllocBytes > 0 ? FormatBytes(s.GCAllocBytes) : "-", new GUIStyle(EditorStyles.label)
+                        {
+                            normal = { textColor = s.GCAllocBytes > 0 ? OptifunityStyles.ColorError : OptifunityStyles.TextSecondary },
+                            fontSize = 10
+                        }, GUILayout.Width(62));
+
+                        GUILayout.Label(where, new GUIStyle(EditorStyles.miniLabel)
+                        {
+                            normal = { textColor = !string.IsNullOrEmpty(locatePath) ? new Color(0.8f, 0.9f, 0.75f) : OptifunityStyles.TextSecondary }
+                        }, GUILayout.Width(210));
+
+                        if (!string.IsNullOrEmpty(locatePath))
+                        {
+                            if (GUILayout.Button("Ping", EditorStyles.miniButton, GUILayout.Width(46), GUILayout.Height(15)))
+                            {
+                                var script = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(locatePath);
+                                if (script != null) EditorGUIUtility.PingObject(script);
+                            }
+                        }
+                        else
+                        {
+                            GUILayout.Space(50);
+                        }
                     }
                 }, rowBg);
             }
@@ -823,11 +1181,20 @@ namespace Optifunity.Editor.Module5.UI
 
         // ─── Helpers ──────────────────────────────────────────────────────────
 
-        private static void DrawCard(Action content, Color? bgColor = null)
+        private void DrawCard(Action content, Color? bgColor = null)
         {
+            Color color = bgColor ?? OptifunityStyles.BgCard;
+            int key = ColorToKey(color);
+
+            if (!_cardTextureCache.TryGetValue(key, out var texture) || texture == null)
+            {
+                texture = OptifunityStyles.MakeTexture(color);
+                _cardTextureCache[key] = texture;
+            }
+
             var style = new GUIStyle(OptifunityStyles.StyleCard)
             {
-                normal = { background = OptifunityStyles.MakeTexture(bgColor ?? OptifunityStyles.BgCard) },
+                normal = { background = texture },
                 margin = new RectOffset(8, 8, 2, 2)
             };
             using (new EditorGUILayout.VerticalScope(style))
@@ -851,6 +1218,15 @@ namespace Optifunity.Editor.Module5.UI
             BottleneckType.Balanced          => OptifunityStyles.ColorSuccess,
             _                               => OptifunityStyles.TextSecondary
         };
+
+        private static int ColorToKey(Color c)
+        {
+            int r = Mathf.Clamp(Mathf.RoundToInt(c.r * 255f), 0, 255);
+            int g = Mathf.Clamp(Mathf.RoundToInt(c.g * 255f), 0, 255);
+            int b = Mathf.Clamp(Mathf.RoundToInt(c.b * 255f), 0, 255);
+            int a = Mathf.Clamp(Mathf.RoundToInt(c.a * 255f), 0, 255);
+            return (r << 24) | (g << 16) | (b << 8) | a;
+        }
 
         private static string FormatBytes(long bytes)
         {

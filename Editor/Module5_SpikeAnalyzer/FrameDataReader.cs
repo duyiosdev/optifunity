@@ -89,6 +89,9 @@ namespace Optifunity.Editor.Module5
 
                 // Tổng GC Alloc cho frame này
                 snapshot.TotalGCAllocBytes = CalculateTotalGCAlloc(snapshot);
+
+                // Tính toán Category Breakdown
+                snapshot.CategoryBreakdown = GenerateCategoryBreakdown(snapshot);
             }
             catch (Exception ex)
             {
@@ -211,7 +214,8 @@ namespace Optifunity.Editor.Module5
                 GCAllocBytes   = (long)(gcAlloc),
                 CallCount      = Mathf.RoundToInt(calls),
                 PercentOfFrame = frameTotalMs > 0 ? totalTime / frameTotalMs * 100f : 0f,
-                Depth          = depth
+                Depth          = depth,
+                Category       = DetermineCategory(name)
             };
 
             // Chỉ traverse children nếu chưa quá sâu
@@ -227,7 +231,70 @@ namespace Optifunity.Editor.Module5
 
             return sample;
         }
+        private static ProfilerCategory DetermineCategory(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return ProfilerCategory.Unknown;
+            
+            if (name.StartsWith("Physics.") || name.StartsWith("Physics2D.") || name.Contains("FixedUpdate"))
+                return ProfilerCategory.Physics;
+            if (name.StartsWith("Camera.Render") || name.StartsWith("Render.") || name.Contains("Gfx.") || name.Contains("Drawing"))
+                return ProfilerCategory.Rendering;
+            if (name.Contains("Update") || name.Contains("Coroutine") || name.Contains("ScriptRun"))
+                return ProfilerCategory.ScriptUpdate;
+            if (name.StartsWith("GC.") || name.Contains("GarbageCollect"))
+                return ProfilerCategory.GarbageCollection;
+            if (name.StartsWith("Animator.") || name.Contains("Animation"))
+                return ProfilerCategory.Animation;
+            if (name.StartsWith("Canvas.") || name.StartsWith("UI.") || name.StartsWith("UGUI"))
+                return ProfilerCategory.UI;
+            if (name.StartsWith("Audio.") || name.Contains("Sound"))
+                return ProfilerCategory.Audio;
+            if (name.StartsWith("Loading.") || name.Contains("AssetBundle") || name.Contains("Instantiate"))
+                return ProfilerCategory.AssetLoading;
+            if (name == "Profiler.EndFrame" || name.Contains("Overhead"))
+                return ProfilerCategory.Overhead;
+
+            return ProfilerCategory.Unknown;
+        }
 #endif
+
+        private static List<FrameCategoryBreakdown> GenerateCategoryBreakdown(FrameSnapshot snapshot)
+        {
+            var dict = new Dictionary<ProfilerCategory, float>();
+            foreach (ProfilerCategory cat in Enum.GetValues(typeof(ProfilerCategory)))
+            {
+                dict[cat] = 0f;
+            }
+
+            // Aggregate self time instead of total time to avoid double counting overlaps
+            foreach (var top in snapshot.TopLevelSamples)
+            {
+                foreach(var s in top.Flatten())
+                {
+                    dict[s.Category] += s.SelfTimeMs;
+                }
+            }
+
+            var breakdown = new List<FrameCategoryBreakdown>();
+            float totalSelfMs = 0f;
+            foreach (var kvp in dict) totalSelfMs += kvp.Value;
+
+            foreach (var kvp in dict)
+            {
+                if (kvp.Value > 0.01f) // Bỏ qua nếu quá nhỏ bé (nhỏ hơn 0.01ms)
+                {
+                    breakdown.Add(new FrameCategoryBreakdown
+                    {
+                        Category = kvp.Key,
+                        TimeMs   = kvp.Value,
+                        Percentage = totalSelfMs > 0 ? (kvp.Value / totalSelfMs) : 0f
+                    });
+                }
+            }
+
+            breakdown.Sort((a, b) => b.Percentage.CompareTo(a.Percentage));
+            return breakdown;
+        }
 
         private static void RegisterToLookup(
             Dictionary<string, List<ProfilerSample>> lookup, ProfilerSample sample)

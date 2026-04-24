@@ -1,9 +1,33 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace Optifunity.Editor.Module5
 {
+    // ══════════════════════════════════════════════════════════════════════════
+    public enum ProfilerCategory
+    {
+        Physics,
+        Rendering,
+        ScriptUpdate,
+        GarbageCollection,
+        Animation,
+        UI,
+        Overhead,
+        Audio,
+        AssetLoading,
+        Unknown
+    }
+
+    [Serializable]
+    public class FrameCategoryBreakdown
+    {
+        public ProfilerCategory Category;
+        public float TimeMs;
+        public float Percentage; // 0.0 - 1.0
+    }
+
     // ══════════════════════════════════════════════════════════════════════════
     // Phân loại 11 loại spike bottleneck + Balanced + Unknown
     // ══════════════════════════════════════════════════════════════════════════
@@ -46,6 +70,7 @@ namespace Optifunity.Editor.Module5
         public int    CallCount;
         public float  PercentOfFrame;   // TotalTimeMs / FrameTotalMs * 100
         public int    Depth;
+        public ProfilerCategory Category;
 
         public List<ProfilerSample> Children = new();
 
@@ -75,6 +100,7 @@ namespace Optifunity.Editor.Module5
         public bool   IsValid;
         public string ErrorMessage;
 
+        public List<FrameCategoryBreakdown> CategoryBreakdown = new();
         public List<ProfilerSample> TopLevelSamples = new();
 
         // Flat lookup: indexed by marker name (lowercase), nhanh O(1)
@@ -158,6 +184,9 @@ namespace Optifunity.Editor.Module5
         // Raw evidence data
         public List<ProfilerSample> TopSlowSamples      = new(); // Top 10 by time
         public List<ProfilerSample> TopGCAllocSamples   = new(); // Top 5 by GC
+
+        // Phân rã frame
+        public List<FrameCategoryBreakdown> CategoryBreakdown = new();
 
         // Recommendations
         public List<string> Recommendations = new();

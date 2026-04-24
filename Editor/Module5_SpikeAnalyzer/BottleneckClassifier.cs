@@ -107,8 +107,9 @@ namespace Optifunity.Editor.Module5
                 FrameIndex     = snapshot.FrameIndex,
                 FrameTotalMs   = snapshot.TotalCpuTimeMs,
                 AverageFrameMs = averageFrameMs,
-                IsSpike        = snapshot.TotalCpuTimeMs > averageFrameMs * 1.5f,
-                Severity       = CalcSeverity(snapshot.TotalCpuTimeMs, averageFrameMs)
+                IsSpike           = snapshot.TotalCpuTimeMs > averageFrameMs * 1.5f,
+                Severity          = CalcSeverity(snapshot.TotalCpuTimeMs, averageFrameMs),
+                CategoryBreakdown = snapshot.CategoryBreakdown
             };
 
             if (!snapshot.IsValid)

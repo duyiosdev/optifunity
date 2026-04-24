@@ -3,25 +3,24 @@
 [![Unity 2021.3+](https://img.shields.io/badge/Unity-2021.3%2B-black.svg)](https://unity3d.com)
 [![URP](https://img.shields.io/badge/Pipeline-URP-blue.svg)](https://docs.unity3d.com/Packages/com.unity.render-pipelines.universal@latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Modules](https://img.shields.io/badge/Modules-6-brightgreen.svg)](#tổng-quan)
+[![Modules](https://img.shields.io/badge/Modules-5-brightgreen.svg)](#tổng-quan)
 
 > **Hệ thống plugin phân tích hiệu năng tự động** cho Unity URP.  
-> Phát hiện bottleneck, audit assets, phân tích memory, và tự động phân loại frame spike ngay trong Editor.
+> Phát hiện bottleneck, audit assets, và tự động phân loại frame spike ngay trong Editor.
 
 ---
 
 ## Tổng Quan
 
-Optifunity tích hợp **6 phân hệ**:
+Optifunity tích hợp **5 phân hệ**:
 
 | # | Phân Hệ | Phạm Vi | Trigger |
 |---|---------|---------|---------|
 | 1 | **Roslyn Code Analyzer** | GC Alloc, Boxing, Memory Leak + anti-pattern + resource management trong C# | Scan thủ công |
 | 2 | **Asset Auditor** | Texture / Mesh / Audio theo tiêu chuẩn platform | Scan thủ công + Auto khi import |
-| 3 | **Memory Snapshot Profiler** | Baseline/Peak/Teardown snapshot, Differential Analysis *(đang để trống trong mã hiện tại)* | Play Mode |
-| 4 | **URP Diagnostics** | Render pipeline PC vs Mobile, SRP Batcher, Draw Calls | Scan thủ công |
-| 5 | **🔬 Spike Analyzer** | Tự động phân tích bottleneck khi chọn frame trong Profiler | **Real-time, tự động** |
-| 6 | **📦 Build Analyzer** | Quét dependency build để liệt kê Material/Shader thực sự đi vào build | Scan thủ công |
+| 3 | **URP Diagnostics** | Render pipeline PC vs Mobile, SRP Batcher, Draw Calls | Scan thủ công |
+| 4 | **🔬 Spike Analyzer** | Tự động phân tích bottleneck khi chọn frame trong Profiler | **Real-time, tự động** |
+| 5 | **📦 Build Analyzer** | Quét dependency build để liệt kê Material/Shader thực sự đi vào build | Scan thủ công |
 
 ---
 
@@ -39,7 +38,6 @@ Optifunity tích hợp **6 phân hệ**:
 |---------|-----------|
 | Unity | 2021.3 LTS trở lên |
 | Render Pipeline | Universal Render Pipeline (URP) |
-| Memory Profiler *(optional)* | `com.unity.memoryprofiler >= 1.1.0` |
 
 ---
 
@@ -90,7 +88,6 @@ d:\Optifunity\
     │   ├── AudioAuditor.cs                Streaming threshold, Vorbis, Force Mono
     │   ├── AssetAuditRunner.cs
     │   └── AssetPostprocessorHook.cs      Auto-apply khi import
-    ├── Module3_MemoryProfiler/            (hiện đang trống trong mã)
     ├── Module4_URPDiagnostics/
     │   ├── URPAssetScanner.cs             Đọc URP Asset properties
     │   ├── URPRecommendationEngine.cs     Ma trận PC vs Mobile
@@ -153,11 +150,7 @@ Phát hiện các pattern nguy hiểm bằng Regex trên toàn bộ `.cs` trong 
 | 4 GB | 2,867 MB | 150 MB | 430 MB | 573 MB |
 | 6 GB+ | 4,300 MB+ | 250 MB | 645 MB | 860 MB |
 
-### Module 3: Memory Snapshot
-
-> ⚠ Module này đang được giữ chỗ trong codebase hiện tại (thư mục tồn tại nhưng chưa có file triển khai). README sẽ được cập nhật lại ngay khi module được kích hoạt lại.
-
-### Module 4: URP Diagnostics
+### Module 3: URP Diagnostics
 
 **Ma trận khuyến nghị PC vs Mobile:**
 
@@ -171,7 +164,7 @@ Phát hiện các pattern nguy hiểm bằng Regex trên toàn bộ `.cs` trong 
 | Additional Shadows | ✅ OK | ❌ Tắt |
 | MSAA | 4× | ≤ 2× hoặc FXAA |
 
-### Module 5: Spike Analyzer 🔬 *(MỚI)*
+### Module 4: Spike Analyzer 🔬 *(MỚI)*
 
 Tự động phân loại **11 loại bottleneck** khi click bất kỳ frame nào trong Profiler:
 

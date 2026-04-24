@@ -1,0 +1,28 @@
+# Claude local workspace
+.claude/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE/editor
+.vscode/
+.idea/
+*.suo
+*.user
+*.userprefs
+
+# Logs/temp
+*.log
+*.tmp
+*.temp
+
+# Unity generated (if this folder is opened as full Unity project)
+Library/
+Temp/
+Obj/
+Logs/
+UserSettings/
+MemoryCaptures/
+Build/
+Builds/

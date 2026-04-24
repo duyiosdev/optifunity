@@ -26,11 +26,17 @@ Optifunity tích hợp **5 phân hệ**:
 
 ## Cài Đặt
 
-### Unity Package Manager (Local Path) — Khuyến nghị
+### Unity Package Manager (Git URL) — Khuyến nghị
 
 1. **Window → Package Manager**
-2. Nhấn **`+`** → **Add package from disk...**
-3. Chọn file `package.json` trong thư mục này (`d:\Optifunity\package.json`)
+2. Nhấn **`+`** → **Add package from git URL...**
+3. Dán URL:
+
+```text
+https://github.com/duyiosdev/optifunity.git#main
+```
+
+> Khuyến nghị phát hành theo tag để ổn định version cho team, ví dụ: `#v1.0.0`.
 
 ### Yêu Cầu
 
@@ -45,11 +51,22 @@ Optifunity tích hợp **5 phân hệ**:
 
 ### Dashboard
 
-```
+```text
 Tools > Optifunity > Dashboard    (Ctrl+Shift+O)
 ```
 
 Nhấn **▶ Full Scan** để chạy các scan tĩnh chính (Code + Assets + URP).
+
+### My Scripts Filter (quan trọng)
+
+Trong toolbar của Dashboard, bật nút **📌 My Scripts** để chỉ scan các thư mục code của bạn, tránh quét toàn bộ package/plugin bên thứ ba.
+
+**Thiết lập folder cho My Scripts:**
+1. Mở Dashboard
+2. Bật **⚙ Config**
+3. Vào mục **My Scripts — Inclusion Folders**
+4. Nhấn **+ Add Folder** để thêm các thư mục muốn scan (ví dụ `Assets/Scripts`, `Assets/Game`)
+5. (Tuỳ chọn) Nhấn **✕** để bỏ folder không dùng
 
 ### Spike Analyzer *(tính năng mới)*
 
@@ -218,7 +235,9 @@ Health Score = max(0, 100 − errors×10 − warnings×3 − infos×0.5)
 
 ---
 
-## Cấu Hình
+## Cấu Hình (Settings trong Dashboard)
+
+Mở **Dashboard** → bật **⚙ Config** để chỉnh các setting chính:
 
 | Tham số | Mô tả | Mặc định |
 |---------|-------|---------|
@@ -227,6 +246,12 @@ Health Score = max(0, 100 − errors×10 − warnings×3 − infos×0.5)
 | Auto-Fix Enabled | Tự động sửa khi import asset | `false` |
 | Audio Stream Threshold | Ngưỡng giây cho Streaming | 5s |
 | Spike Threshold | Multiplier để mark spike (× avg) | 1.5× |
+| My Scripts Folders | Danh sách folder được scan khi bật **📌 My Scripts** | Trống (user tự thêm) |
+
+**Gợi ý cấu hình nhanh:**
+- Team game thường dùng: thêm `Assets/Scripts`, `Assets/Game`, `Assets/UI` vào **My Scripts Folders**.
+- Khi audit release: tắt **📌 My Scripts** để quét full project.
+- Khi debug nhanh theo team feature: bật **📌 My Scripts** để kết quả gọn và nhanh hơn.
 
 ---
 

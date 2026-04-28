@@ -766,7 +766,30 @@ namespace Optifunity.Editor.UI
                                         fixCount++;
                                     }
                                 }
+
+                                if (_lastReport != null)
+                                {
+                                    List<PerformanceIssue> targetList = group.Module switch
+                                    {
+                                        IssueModule.CodeAnalysis   => _lastReport.CodeIssues,
+                                        IssueModule.AssetAudit     => _lastReport.AssetIssues,
+                                        IssueModule.URPDiagnostics => _lastReport.URPIssues,
+                                        _                          => null
+                                    };
+
+                                    if (targetList != null)
+                                    {
+                                        targetList.RemoveAll(i =>
+                                            i.Module == group.Module &&
+                                            i.Severity == group.Severity &&
+                                            i.Title == group.Title);
+                                    }
+
+                                    _cachedForReport = null;
+                                }
+
                                 _statusMsg = $"Fixed {fixCount} issues: {group.Title}";
+                                Repaint();
                             }
                         }
                     }

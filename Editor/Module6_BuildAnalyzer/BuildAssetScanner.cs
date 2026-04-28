@@ -13,12 +13,22 @@ namespace Optifunity.Editor.Module6
             public List<string> Shaders = new List<string>();
             public List<string> Materials = new List<string>();
             public HashSet<string> AllDependencies = new HashSet<string>();
+            public Dictionary<string, string> ShaderSources = new Dictionary<string, string>();
+            public Dictionary<string, string> MaterialSources = new Dictionary<string, string>();
+        }
+
+        private static bool IsEditorPath(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return false;
+            string normalized = path.Replace('\\', '/');
+            return normalized.Contains("/Editor/") || normalized.StartsWith("Editor/");
         }
 
         public static BuildResults GetBuildShadersAndMaterials()
         {
             var results = new BuildResults();
             var roots = new HashSet<string>();
+            var rootSources = new Dictionary<string, string>();
 
             // 1. Build Scenes
             foreach (var scene in EditorBuildSettings.scenes)
@@ -26,18 +36,22 @@ namespace Optifunity.Editor.Module6
                 if (scene.enabled && !string.IsNullOrEmpty(scene.path))
                 {
                     roots.Add(scene.path);
+                    rootSources[scene.path] = "Scene";
                 }
             }
 
-            // 2. Resources Folders (Any asset in a folder named 'Resources')
+            // 2. Resources Folders (exclude Editor-only resources)
             foreach (var guid in AssetDatabase.FindAssets(""))
             {
                 string path = AssetDatabase.GUIDToAssetPath(guid);
                 if (path.StartsWith("Packages/")) continue;
-                
-                if (path.Contains("/Resources/") || path.Contains("\\Resources\\"))
+                if (IsEditorPath(path)) continue;
+
+                string normalized = path.Replace('\\', '/');
+                if (normalized.Contains("/Resources/"))
                 {
                     roots.Add(path);
+                    if (!rootSources.ContainsKey(path)) rootSources[path] = "Resources";
                 }
             }
 
@@ -58,7 +72,11 @@ namespace Optifunity.Editor.Module6
                             if (shaderProp.objectReferenceValue != null)
                             {
                                 string path = AssetDatabase.GetAssetPath(shaderProp.objectReferenceValue);
-                                if (!string.IsNullOrEmpty(path)) roots.Add(path);
+                                if (!string.IsNullOrEmpty(path))
+                                {
+                                    roots.Add(path);
+                                    rootSources[path] = "Always Included Shader";
+                                }
                             }
                         }
                     }
@@ -70,21 +88,45 @@ namespace Optifunity.Editor.Module6
             
             string[] deps = AssetDatabase.GetDependencies(roots.ToArray(), true);
 
+            var shaderSet = new HashSet<string>();
+            var materialSet = new HashSet<string>();
+            var filteredDeps = new HashSet<string>();
+            var shaderSources = new Dictionary<string, string>();
+            var materialSources = new Dictionary<string, string>();
+
             foreach (var path in deps)
             {
+                if (IsEditorPath(path)) continue;
+
+                filteredDeps.Add(path);
+
+                string source = "Dependency";
+                foreach (var kv in rootSources)
+                {
+                    if (path == kv.Key)
+                    {
+                        source = kv.Value;
+                        break;
+                    }
+                }
+
                 if (path.EndsWith(".shader") || path.EndsWith(".shadergraph") || path.EndsWith(".compute"))
                 {
-                    results.Shaders.Add(path);
+                    shaderSet.Add(path);
+                    if (!shaderSources.ContainsKey(path)) shaderSources[path] = source;
                 }
                 else if (path.EndsWith(".mat"))
                 {
-                    results.Materials.Add(path);
+                    materialSet.Add(path);
+                    if (!materialSources.ContainsKey(path)) materialSources[path] = source;
                 }
             }
 
-            results.Shaders.Sort();
-            results.Materials.Sort();
-            results.AllDependencies = new HashSet<string>(deps);
+            results.Shaders = shaderSet.OrderBy(p => p).ToList();
+            results.Materials = materialSet.OrderBy(p => p).ToList();
+            results.AllDependencies = filteredDeps;
+            results.ShaderSources = shaderSources;
+            results.MaterialSources = materialSources;
 
             EditorUtility.ClearProgressBar();
 

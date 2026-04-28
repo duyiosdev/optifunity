@@ -444,7 +444,7 @@ namespace Optifunity.Editor.UI
         {
             GUILayout.Label("📦 Trích xuất tài nguyên Build Cuối (Final Build Assets)", OptifunityStyles.StyleHeader);
             GUILayout.Space(5);
-            GUILayout.Label("Phân tích cây Dependency từ EditorBuildSettings, Resources và GraphicsSettings để tổng hợp danh sách Material/Shader thực tế sẽ bị pack vào game.", 
+            GUILayout.Label("Phân tích dependency từ EditorBuildSettings, Resources và GraphicsSettings để tổng hợp Material/Shader có khả năng được include vào build (không phải danh sách đóng gói cuối sau stripping).",
                 OptifunityStyles.StyleIssueDesc);
             GUILayout.Space(10);
 
@@ -474,9 +474,19 @@ namespace Optifunity.Editor.UI
                     OptifunityStyles.DrawSeparator();
                     foreach (var matPath in _buildResults.Materials)
                     {
+                        _buildResults.MaterialSources.TryGetValue(matPath, out var src);
                         using (new EditorGUILayout.HorizontalScope())
                         {
                             GUILayout.Label(matPath, EditorStyles.miniLabel);
+                            GUILayout.Space(6);
+                            if (!string.IsNullOrEmpty(src))
+                            {
+                                Color c = src == "Scene" ? new Color(0.45f, 0.8f, 1f) :
+                                          src == "Resources" ? new Color(0.7f, 0.95f, 0.65f) :
+                                          src == "Always Included Shader" ? new Color(1f, 0.75f, 0.35f) :
+                                          OptifunityStyles.TextSecondary;
+                                OptifunityStyles.DrawBadge(src, c);
+                            }
                             GUILayout.FlexibleSpace();
                             if (GUILayout.Button("Ping", EditorStyles.miniButtonRight, GUILayout.Width(40)))
                             {
@@ -495,9 +505,19 @@ namespace Optifunity.Editor.UI
                     OptifunityStyles.DrawSeparator();
                     foreach (var shaderPath in _buildResults.Shaders)
                     {
+                        _buildResults.ShaderSources.TryGetValue(shaderPath, out var src);
                         using (new EditorGUILayout.HorizontalScope())
                         {
                             GUILayout.Label(shaderPath, EditorStyles.miniLabel);
+                            GUILayout.Space(6);
+                            if (!string.IsNullOrEmpty(src))
+                            {
+                                Color c = src == "Scene" ? new Color(0.45f, 0.8f, 1f) :
+                                          src == "Resources" ? new Color(0.7f, 0.95f, 0.65f) :
+                                          src == "Always Included Shader" ? new Color(1f, 0.75f, 0.35f) :
+                                          OptifunityStyles.TextSecondary;
+                                OptifunityStyles.DrawBadge(src, c);
+                            }
                             GUILayout.FlexibleSpace();
                             if (GUILayout.Button("Ping", EditorStyles.miniButtonRight, GUILayout.Width(40)))
                             {

@@ -48,6 +48,12 @@ namespace Optifunity.Editor.Module4
 
             // Post Processing
             public bool  PostProcessingEnabled;
+
+            // Unity 6 / GRD-related (best-effort direct read)
+            public bool? GpuResidentDrawerEnabledFlag;
+            public bool? GpuOcclusionCullingEnabledFlag;
+            public bool? ShaderStripEnabledFlag;
+            public bool? BrgKeepAllVariantsFlag;
         }
 
         /// <summary>
@@ -101,7 +107,29 @@ namespace Optifunity.Editor.Module4
             // Additional lights count
             snapshot.AdditionalLightCount = pipelineAsset.maxAdditionalLightsCount;
 
+            // Unity 6 / GRD-related serialized fields (best-effort)
+            TryReadBool(pipelineAsset, "m_GPUResidentDrawer", out snapshot.GpuResidentDrawerEnabledFlag);
+            TryReadBool(pipelineAsset, "m_GPUOcclusionCulling", out snapshot.GpuOcclusionCullingEnabledFlag);
+            TryReadBool(pipelineAsset, "m_ShaderStripping", out snapshot.ShaderStripEnabledFlag);
+            TryReadBool(pipelineAsset, "m_BRGKeepAllVariants", out snapshot.BrgKeepAllVariantsFlag);
+
             return snapshot;
+        }
+
+        private static void TryReadBool(UnityEngine.Object target, string propName, out bool? value)
+        {
+            value = null;
+            try
+            {
+                using var so = new SerializedObject(target);
+                var prop = so.FindProperty(propName);
+                if (prop != null && prop.propertyType == SerializedPropertyType.Boolean)
+                    value = prop.boolValue;
+            }
+            catch
+            {
+                value = null;
+            }
         }
 
         /// <summary>

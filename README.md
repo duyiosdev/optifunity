@@ -3,7 +3,7 @@
 [![Unity 2021.3+](https://img.shields.io/badge/Unity-2021.3%2B-black.svg)](https://unity3d.com)
 [![URP](https://img.shields.io/badge/Pipeline-URP-blue.svg)](https://docs.unity3d.com/Packages/com.unity.render-pipelines.universal@latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Modules](https://img.shields.io/badge/Modules-5-brightgreen.svg)](#tổng-quan)
+[![Modules](https://img.shields.io/badge/Modules-7-brightgreen.svg)](#tổng-quan)
 
 > **Hệ thống plugin phân tích hiệu năng tự động** cho Unity URP.  
 > Phát hiện bottleneck, audit assets, và tự động phân loại frame spike ngay trong Editor.
@@ -12,15 +12,16 @@
 
 ## Tổng Quan
 
-Optifunity tích hợp **5 phân hệ**:
+Optifunity tích hợp **7 phân hệ**:
 
 | # | Phân Hệ | Phạm Vi | Trigger |
 |---|---------|---------|---------|
 | 1 | **Roslyn Code Analyzer** | GC Alloc, Boxing, Memory Leak + anti-pattern + resource management trong C# | Scan thủ công |
 | 2 | **Asset Auditor** | Texture / Mesh / Audio theo tiêu chuẩn platform | Scan thủ công + Auto khi import |
-| 3 | **URP Diagnostics** | Render pipeline PC vs Mobile, SRP Batcher, Draw Calls | Scan thủ công |
+| 3 | **Shader/Materials** | Render pipeline PC vs Mobile, SRP Batcher, Draw Calls | Scan thủ công |
 | 4 | **🔬 Spike Analyzer** | Tự động phân tích bottleneck khi chọn frame trong Profiler | **Real-time, tự động** |
 | 5 | **📦 Build Analyzer** | Quét dependency build để liệt kê Material/Shader thực sự đi vào build | Scan thủ công |
+| 6 | **📱 Render Pipeline** | Visual workflow tối ưu URP mobile + phát hiện mismatch Project/URP + guidance Unity 6 GRD/Vulkan | Scan thủ công (qua Full Scan) |
 
 ---
 
@@ -120,6 +121,11 @@ d:\Optifunity\
     │   └── ProfilerHelper.cs              Cross-version selected-frame helper
     ├── Module6_BuildAnalyzer/
     │   └── BuildAssetScanner.cs           Quét dependency build (Materials/Shaders)
+    ├── Module7_MobileWorkflow/
+    │   ├── MobileWorkflowRunner.cs        Orchestrator cho visual mobile workflow checks
+    │   ├── MobileWorkflowAnalyzer.cs      Checklist step-by-step tối ưu URP mobile
+    │   ├── ProjectSettingsMismatchAnalyzer.cs  Phát hiện lệch Project Settings vs URP
+    │   └── Unity6VulkanGuidanceAnalyzer.cs     Guidance Unity 6 GRD + Vulkan path
     └── UI/
         ├── OptifunityStyles.cs            Dark theme styles
         ├── DashboardWindow.cs             6-tab main window (gồm Spike + Build)
@@ -167,7 +173,7 @@ Phát hiện các pattern nguy hiểm bằng Regex trên toàn bộ `.cs` trong 
 | 4 GB | 2,867 MB | 150 MB | 430 MB | 573 MB |
 | 6 GB+ | 4,300 MB+ | 250 MB | 645 MB | 860 MB |
 
-### Module 3: URP Diagnostics
+### Module 3: Shader/Materials
 
 **Ma trận khuyến nghị PC vs Mobile:**
 
@@ -208,7 +214,7 @@ Tự động phân loại **11 loại bottleneck** khi click bất kỳ frame n�
 
 ---
 
-## Dashboard — 6 Tabs
+## Dashboard — 7 Tabs
 
 | Tab | Nội dung |
 |-----|---------|
@@ -216,6 +222,7 @@ Tự động phân loại **11 loại bottleneck** khi click bất kỳ frame n�
 | **Code** | GC Alloc + Boxing + Memory Leak + anti-pattern/resource-management issues |
 | **Assets** | Texture + Mesh + Audio audit issues |
 | **URP** | URP settings + SRP Batcher + Draw Call issues |
+| **📱 Render Pipeline** | Visual workflow tối ưu mobile, mismatch detection, Unity 6 GRD/Vulkan guidance |
 | **🔬 Spike** | Profiler status, frame diagnosis, bottleneck/root-cause analysis |
 | **📦 Build** | Danh sách Material/Shader thực tế đi vào build |
 

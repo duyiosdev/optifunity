@@ -3,6 +3,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using Optifunity.Editor.Core;
+using Optifunity.Editor.Module8;
 
 namespace Optifunity.Editor.UI
 {
@@ -183,12 +184,37 @@ namespace Optifunity.Editor.UI
                     }
 
                     // Open asset
-                    if (!string.IsNullOrEmpty(issue.AssetPath))
+                    if (!string.IsNullOrEmpty(issue.AssetPath) || !string.IsNullOrEmpty(issue.CodeLocation))
                     {
                         if (GUILayout.Button("→ Open", GUILayout.Width(55), GUILayout.Height(18)))
                         {
-                            var obj = AssetDatabase.LoadAssetAtPath<Object>(issue.AssetPath);
-                            if (obj != null) { EditorGUIUtility.PingObject(obj); Selection.activeObject = obj; }
+                            if (issue.Module == IssueModule.SceneRendererAudit)
+                            {
+                                var choice = EditorUtility.DisplayDialogComplex(
+                                    "Optifunity",
+                                    "Chọn kiểu locate cho Scene issue:",
+                                    "GameObject",
+                                    "Hủy",
+                                    "LODGroup");
+
+                                if (choice == 0)
+                                {
+                                    bool located = SceneRendererAuditRunner.TryLocateGameObject(issue);
+                                    if (!located)
+                                        EditorUtility.DisplayDialog("Optifunity", "Không locate được GameObject từ issue này. Hãy chạy lại Scene Scan để refresh token object path.", "OK");
+                                }
+                                else if (choice == 2)
+                                {
+                                    bool locatedLod = SceneRendererAuditRunner.TryLocateReferencingLodGroup(issue);
+                                    if (!locatedLod)
+                                        EditorUtility.DisplayDialog("Optifunity", "Không tìm thấy LODGroup đang reference renderer này.", "OK");
+                                }
+                            }
+                            else if (!string.IsNullOrEmpty(issue.AssetPath))
+                            {
+                                var obj = AssetDatabase.LoadAssetAtPath<Object>(issue.AssetPath);
+                                if (obj != null) { EditorGUIUtility.PingObject(obj); Selection.activeObject = obj; }
+                            }
                         }
                     }
                 }

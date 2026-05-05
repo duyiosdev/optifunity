@@ -24,7 +24,8 @@ namespace Optifunity.Editor.Core
         CodeAnalysis,
         AssetAudit,
         URPDiagnostics,
-        MobileWorkflow
+        MobileWorkflow,
+        SceneRendererAudit
     }
 
     /// <summary>
@@ -63,9 +64,10 @@ namespace Optifunity.Editor.Core
         public List<PerformanceIssue> AssetIssues     = new();
         public List<PerformanceIssue> URPIssues       = new();
         public List<PerformanceIssue> MobileIssues    = new();
+        public List<PerformanceIssue> SceneRendererIssues = new();
 
         public IEnumerable<PerformanceIssue> AllIssues =>
-            CodeIssues.Concat(AssetIssues).Concat(URPIssues).Concat(MobileIssues);
+            CodeIssues.Concat(AssetIssues).Concat(URPIssues).Concat(MobileIssues).Concat(SceneRendererIssues);
 
         public int ErrorCount   => AllIssues.Count(i => i.Severity == IssueSeverity.Error);
         public int WarningCount => AllIssues.Count(i => i.Severity == IssueSeverity.Warning);
@@ -123,10 +125,11 @@ namespace Optifunity.Editor.Core
 
             switch (module)
             {
-                case IssueModule.CodeAnalysis:    _lastReport.CodeIssues    .AddRange(list); break;
-                case IssueModule.AssetAudit:      _lastReport.AssetIssues   .AddRange(list); break;
-                case IssueModule.URPDiagnostics:  _lastReport.URPIssues     .AddRange(list); break;
-                case IssueModule.MobileWorkflow:  _lastReport.MobileIssues  .AddRange(list); break;
+                case IssueModule.CodeAnalysis:      _lastReport.CodeIssues         .AddRange(list); break;
+                case IssueModule.AssetAudit:        _lastReport.AssetIssues        .AddRange(list); break;
+                case IssueModule.URPDiagnostics:    _lastReport.URPIssues          .AddRange(list); break;
+                case IssueModule.MobileWorkflow:    _lastReport.MobileIssues       .AddRange(list); break;
+                case IssueModule.SceneRendererAudit:_lastReport.SceneRendererIssues.AddRange(list); break;
             }
         }
 
@@ -168,12 +171,14 @@ namespace Optifunity.Editor.Core
             AppendModuleRow(sb, "Asset Audit",      report.AssetIssues);
             AppendModuleRow(sb, "Shader/Materials", report.URPIssues);
             AppendModuleRow(sb, "Render Pipeline",  report.MobileIssues);
+            AppendModuleRow(sb, "Scene Renderer",   report.SceneRendererIssues);
             sb.AppendLine();
 
-            AppendSection(sb, "## Code Analysis Issues",   report.CodeIssues);
-            AppendSection(sb, "## Asset Audit Issues",     report.AssetIssues);
+            AppendSection(sb, "## Code Analysis Issues",    report.CodeIssues);
+            AppendSection(sb, "## Asset Audit Issues",      report.AssetIssues);
             AppendSection(sb, "## Shader/Materials Issues", report.URPIssues);
             AppendSection(sb, "## Render Pipeline Issues",  report.MobileIssues);
+            AppendSection(sb, "## Scene Renderer Issues",   report.SceneRendererIssues);
 
             return sb.ToString();
         }

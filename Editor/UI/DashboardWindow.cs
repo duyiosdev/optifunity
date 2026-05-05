@@ -11,6 +11,7 @@ using Optifunity.Editor.Module5;
 using Optifunity.Editor.Module5.UI;
 using Optifunity.Editor.Module6;
 using Optifunity.Editor.Module7;
+using Optifunity.Editor.Module8;
 
 namespace Optifunity.Editor.UI
 {
@@ -28,7 +29,7 @@ namespace Optifunity.Editor.UI
         private bool        _isScanning;
         private string      _statusMsg = "Sẵn sàng. Nhấn 'Full Scan' để bắt đầu.";
 
-        private readonly string[] _tabNames = { "Overview", "Code", "Assets", "Shader/Materials", "Render Pipeline", "🔬 Spike", "📦 Build" };
+        private readonly string[] _tabNames = { "Overview", "Code", "Assets", "Shader/Materials", "Render Pipeline", "🧩 Scene", "🔬 Spike", "📦 Build" };
 
         // Config panel
         private bool _showConfig;
@@ -39,6 +40,7 @@ namespace Optifunity.Editor.UI
         private List<IssueGroup> _cachedAssetIssues;
         private List<IssueGroup> _cachedURPIssues;
         private List<IssueGroup> _cachedMobileIssues;
+        private List<IssueGroup> _cachedSceneIssues;
         private ScanReport       _cachedForReport;   // invalidate when report changes
 
         private class IssueGroup
@@ -61,6 +63,7 @@ namespace Optifunity.Editor.UI
         private Vector2 _scrollMobile;
         private Vector2 _scrollOverview;
         private Vector2 _scrollBuild;
+        private Vector2 _scrollScene;
 
         private BuildAssetScanner.BuildResults _buildResults;
 
@@ -75,11 +78,27 @@ namespace Optifunity.Editor.UI
         private int _filterAssets = 0;
         private int _filterURP    = 0;
         private int _filterMobile = 0;
+        private int _filterScene  = 0;
         private readonly string[] _filterLabels = { "All", "🛑 Error", "⚠️ Warning", "🔵 Info" };
 
         private int _mobileVariant = 0; // 0: Traditional, 1: Unity 6 GRD
         private readonly string[] _mobileVariantLabels = { "Traditional", "Unity 6 GRD" };
         private string _selectedMobileNodeId;
+
+        private readonly string[] _onOffLabels = { "On", "Off" };
+        private bool _sceneFilterEnableMpb;
+        private int _sceneFilterMpbExpected;
+        private bool _sceneFilterEnableInstancing;
+        private int _sceneFilterInstancingExpected;
+        private bool _sceneFilterEnableStaticBatching;
+        private int _sceneFilterStaticBatchingExpected;
+        private bool _sceneFilterEnableLodGroup;
+        private int _sceneFilterLodGroupExpected;
+        private bool _sceneFilterEnableXrMotion;
+        private int _sceneFilterXrMotionExpected;
+        private bool _sceneFilterEnableDotsInstancing;
+        private int _sceneFilterDotsInstancingExpected;
+        private bool _sceneIncludeSkinnedMeshRenderers;
 
         // ─── Scan Mode ──────────────────────────────────────────────────────
         private bool _myScriptsOnly = false;
@@ -213,6 +232,8 @@ namespace Optifunity.Editor.UI
                     RunAssetScan();
                 if (GUILayout.Button("URP", GUILayout.Width(55), GUILayout.Height(28)))
                     RunURPScan();
+                if (GUILayout.Button("Scene", GUILayout.Width(65), GUILayout.Height(28)))
+                    RunSceneScan(BuildSceneScanOptions());
 
                 GUI.enabled = true;
 
@@ -360,8 +381,9 @@ namespace Optifunity.Editor.UI
                 case 2: DrawVirtualIssueList(GetCachedIssues(1), "Asset Audit Issues",    "Chưa có dữ liệu — chạy Asset Scan hoặc Full Scan", ref _scrollAssets, ref _filterAssets); break;
                 case 3: DrawVirtualIssueList(GetCachedIssues(2), "Shader/Materials",       "Chưa có dữ liệu — chạy URP Scan hoặc Full Scan",   ref _scrollURP,    ref _filterURP);    break;
                 case 4: DrawMobileTab(); break;
-                case 5: DrawSpikeTab(); break;
-                case 6: DrawBuildAssetTab(); break;
+                case 5: DrawSceneTab(); break;
+                case 6: DrawSpikeTab(); break;
+                case 7: DrawBuildAssetTab(); break;
             }
 
             GUILayout.Space(10);
@@ -389,8 +411,9 @@ namespace Optifunity.Editor.UI
             {
                 DrawSummaryCard("Code Analysis",  _lastReport.CodeIssues,    "📄");
                 DrawSummaryCard("Asset Audit",    _lastReport.AssetIssues,   "🗂");
-                DrawSummaryCard("Shader/Materials", _lastReport.URPIssues,    "🎨");
-                DrawSummaryCard("Render Pipeline",  _lastReport.MobileIssues, "📱");
+                DrawSummaryCard("Shader/Materials", _lastReport.URPIssues,          "🎨");
+                DrawSummaryCard("Render Pipeline",  _lastReport.MobileIssues,       "📱");
+                DrawSummaryCard("Scene Renderer",   _lastReport.SceneRendererIssues, "🧩");
             }
 
             GUILayout.Space(4);
@@ -580,13 +603,15 @@ namespace Optifunity.Editor.UI
                 _cachedAssetIssues  = GroupAndSortIssues(_lastReport?.AssetIssues);
                 _cachedURPIssues    = GroupAndSortIssues(_lastReport?.URPIssues);
                 _cachedMobileIssues = GroupAndSortIssues(_lastReport?.MobileIssues);
+                _cachedSceneIssues  = GroupAndSortIssues(_lastReport?.SceneRendererIssues);
             }
             return kind switch
             {
                 0 => _cachedCodeIssues,
                 1 => _cachedAssetIssues,
                 2 => _cachedURPIssues,
-                _ => _cachedMobileIssues
+                3 => _cachedMobileIssues,
+                _ => _cachedSceneIssues
             };
         }
 
@@ -783,11 +808,12 @@ namespace Optifunity.Editor.UI
                                 {
                                     List<PerformanceIssue> targetList = group.Module switch
                                     {
-                                        IssueModule.CodeAnalysis   => _lastReport.CodeIssues,
-                                        IssueModule.AssetAudit     => _lastReport.AssetIssues,
-                                        IssueModule.URPDiagnostics => _lastReport.URPIssues,
-                                        IssueModule.MobileWorkflow => _lastReport.MobileIssues,
-                                        _                          => null
+                                        IssueModule.CodeAnalysis      => _lastReport.CodeIssues,
+                                        IssueModule.AssetAudit        => _lastReport.AssetIssues,
+                                        IssueModule.URPDiagnostics    => _lastReport.URPIssues,
+                                        IssueModule.MobileWorkflow    => _lastReport.MobileIssues,
+                                        IssueModule.SceneRendererAudit=> _lastReport.SceneRendererIssues,
+                                        _                             => null
                                     };
 
                                     if (targetList != null)
@@ -841,24 +867,48 @@ namespace Optifunity.Editor.UI
                         var inst = group.Instances[i];
                         using (new EditorGUILayout.HorizontalScope())
                         {
-                            string pathDisplay = string.IsNullOrEmpty(inst.AssetPath) ? inst.CodeLocation : inst.AssetPath;
+                            string hierarchyPath = null;
+                            bool hasSceneObjectPath = inst.Module == IssueModule.SceneRendererAudit &&
+                                SceneRendererAuditRunner.TryExtractSceneGameObjectPath(inst.CodeLocation, out _, out hierarchyPath);
+
+                            string pathDisplay = hasSceneObjectPath
+                                ? hierarchyPath
+                                : (inst.Module == IssueModule.SceneRendererAudit
+                                    ? "[Missing GameObject token]"
+                                    : (string.IsNullOrEmpty(inst.AssetPath) ? inst.CodeLocation : inst.AssetPath));
+
                             if (string.IsNullOrEmpty(pathDisplay)) pathDisplay = "Global / Project Settings";
-                            
-                            if (pathDisplay.Length > 80) pathDisplay = "..." + pathDisplay.Substring(pathDisplay.Length - 77);
-                            
+                            if (pathDisplay.Length > 100) pathDisplay = "..." + pathDisplay.Substring(pathDisplay.Length - 97);
+
                             GUILayout.Label($"• {pathDisplay}", EditorStyles.miniLabel);
                             GUILayout.FlexibleSpace();
-                            
-                            // Individual ping/link
-                            if (!string.IsNullOrEmpty(inst.AssetPath))
+
+                            if (inst.Module == IssueModule.SceneRendererAudit)
                             {
-                                if (GUILayout.Button("→", GUILayout.Width(22), GUILayout.Height(16)))
-                                    CodeAnalysisRunner.PingAsset(inst.AssetPath);
+                                if (GUILayout.Button("LOD", GUILayout.Width(38), GUILayout.Height(16)))
+                                {
+                                    bool locatedLod = SceneRendererAuditRunner.TryLocateReferencingLodGroup(inst);
+                                    if (!locatedLod)
+                                        EditorUtility.DisplayDialog("Optifunity", "Không tìm thấy LODGroup đang reference renderer này.", "OK");
+                                }
                             }
-                            else if (!string.IsNullOrEmpty(inst.CodeLocation))
+
+                            if (GUILayout.Button("→", GUILayout.Width(22), GUILayout.Height(16)))
                             {
-                                if (GUILayout.Button("→", GUILayout.Width(22), GUILayout.Height(16)))
+                                if (inst.Module == IssueModule.SceneRendererAudit)
+                                {
+                                    bool located = SceneRendererAuditRunner.TryLocateGameObject(inst);
+                                    if (!located)
+                                        EditorUtility.DisplayDialog("Optifunity", "Không locate được GameObject từ issue này. Hãy chạy lại Scene Scan để refresh token object path.", "OK");
+                                }
+                                else if (!string.IsNullOrEmpty(inst.AssetPath))
+                                {
+                                    CodeAnalysisRunner.PingAsset(inst.AssetPath);
+                                }
+                                else if (!string.IsNullOrEmpty(inst.CodeLocation) && !inst.CodeLocation.StartsWith("scenego://"))
+                                {
                                     CodeAnalysisRunner.PingAsset(inst.CodeLocation.Split(':')[0]);
+                                }
                             }
                         }
                     }
@@ -882,6 +932,62 @@ namespace Optifunity.Editor.UI
                 }
             }
         }
+
+        private void DrawSceneTab()
+        {
+            GUILayout.Label("  🧩 Scene Renderer Audit", OptifunityStyles.StyleHeader);
+
+            var issues = _lastReport?.SceneRendererIssues ?? new List<PerformanceIssue>();
+            var groups = GetCachedIssues(4) ?? new List<IssueGroup>();
+            int total = issues.Count;
+            int tokenOk = issues.Count(i => i.Module == IssueModule.SceneRendererAudit &&
+                                            SceneRendererAuditRunner.TryExtractSceneGameObjectPath(i.CodeLocation, out _, out _));
+            int tokenMissing = total - tokenOk;
+
+            using (new EditorGUILayout.VerticalScope(OptifunityStyles.StyleCard))
+            {
+                GUILayout.Label("Scene Filters", OptifunityStyles.StyleIssueTitle);
+
+                DrawSceneFilterRow("MaterialPropertyBlock", ref _sceneFilterEnableMpb, ref _sceneFilterMpbExpected);
+                DrawSceneFilterRow("GPU Instancing", ref _sceneFilterEnableInstancing, ref _sceneFilterInstancingExpected);
+                DrawSceneFilterRow("Static Batching", ref _sceneFilterEnableStaticBatching, ref _sceneFilterStaticBatchingExpected);
+                DrawSceneFilterRow("LODGroup", ref _sceneFilterEnableLodGroup, ref _sceneFilterLodGroupExpected);
+                DrawSceneFilterRow("XR Motion", ref _sceneFilterEnableXrMotion, ref _sceneFilterXrMotionExpected);
+                DrawSceneFilterRow("DOTS Instancing Support", ref _sceneFilterEnableDotsInstancing, ref _sceneFilterDotsInstancingExpected);
+
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    _sceneIncludeSkinnedMeshRenderers = EditorGUILayout.ToggleLeft("Scan Skinned Mesh Renderer", _sceneIncludeSkinnedMeshRenderers, GUILayout.Width(220));
+                    GUILayout.FlexibleSpace();
+                }
+
+                GUILayout.Space(4);
+
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    GUILayout.Space(8);
+                    GUILayout.Label($"{total} issues in {groups.Count} groups", OptifunityStyles.StyleSubtitle, GUILayout.Width(180));
+                    OptifunityStyles.DrawBadge($"Token OK: {tokenOk}", OptifunityStyles.ColorSuccess);
+                    GUILayout.Space(4);
+                    OptifunityStyles.DrawBadge($"Token Missing: {tokenMissing}", tokenMissing > 0 ? OptifunityStyles.ColorWarning : OptifunityStyles.ColorInfo);
+                    GUILayout.FlexibleSpace();
+                    if (GUILayout.Button("Run Scene Scan", GUILayout.Width(110), GUILayout.Height(22)))
+                        RunSceneScan(BuildSceneScanOptions());
+                    GUILayout.Space(8);
+                }
+            }
+
+            if (issues.Count == 0)
+            {
+                GUILayout.Space(12);
+                GUILayout.Label("  Chưa có dữ liệu — chọn filter rồi bấm Run Scene Scan.",
+                    new GUIStyle(EditorStyles.centeredGreyMiniLabel) { fontSize = 11 });
+                return;
+            }
+
+            DrawVirtualIssueList(groups, "Scene Renderer Audit", "Chưa có dữ liệu — chạy Scene Scan hoặc Full Scan", ref _scrollScene, ref _filterScene);
+        }
+
 
         private void DrawMobileTab()
         {
@@ -1217,6 +1323,10 @@ namespace Optifunity.Editor.UI
                 Repaint();
                 RunMobileScanInternal();
 
+                _statusMsg = "Phân tích Scene Renderer...";
+                Repaint();
+                RunSceneScanInternal(BuildSceneScanOptions());
+
                 ReportEngine.FinalizeScan();
                 _lastReport = ReportEngine.LastReport;
                 _cachedForReport = null; // force cache rebuild
@@ -1288,6 +1398,64 @@ namespace Optifunity.Editor.UI
             var mobileIssues = MobileWorkflowRunner.RunAll();
             ReportEngine.AddIssues(IssueModule.MobileWorkflow, mobileIssues);
             _statusMsg = $"Mobile Workflow Scan: {mobileIssues.Count} issues";
+        }
+
+        private void RunSceneScan(SceneMeshRendererScanner.ScanOptions options = null)
+        {
+            ReportEngine.BeginScan();
+            RunSceneScanInternal(options);
+            ReportEngine.FinalizeScan();
+            _lastReport = ReportEngine.LastReport;
+            _cachedForReport = null;
+            _selectedTab = 5;
+            Repaint();
+        }
+
+        private void RunSceneScanInternal(SceneMeshRendererScanner.ScanOptions options = null)
+        {
+            var sceneIssues = SceneRendererAuditRunner.RunAll(options);
+            ReportEngine.AddIssues(IssueModule.SceneRendererAudit, sceneIssues);
+            _statusMsg = $"Scene Scan: {sceneIssues.Count} issues";
+        }
+
+        private void DrawSceneFilterRow(string label, ref bool enabled, ref int expected)
+        {
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                enabled = EditorGUILayout.Toggle(enabled, GUILayout.Width(18));
+                GUILayout.Label(label, GUILayout.Width(180));
+                using (new EditorGUI.DisabledScope(!enabled))
+                {
+                    expected = GUILayout.Toolbar(expected, _onOffLabels, GUILayout.Width(140));
+                }
+                GUILayout.FlexibleSpace();
+            }
+        }
+
+        private SceneMeshRendererScanner.ScanOptions BuildSceneScanOptions()
+        {
+            return new SceneMeshRendererScanner.ScanOptions
+            {
+                IncludeSkinnedMeshRenderers = _sceneIncludeSkinnedMeshRenderers,
+
+                EnableMaterialPropertyBlockFilter = _sceneFilterEnableMpb,
+                MaterialPropertyBlockExpectedOn = _sceneFilterMpbExpected == 0,
+
+                EnableGpuInstancingFilter = _sceneFilterEnableInstancing,
+                GpuInstancingExpectedOn = _sceneFilterInstancingExpected == 0,
+
+                EnableStaticBatchingFilter = _sceneFilterEnableStaticBatching,
+                StaticBatchingExpectedOn = _sceneFilterStaticBatchingExpected == 0,
+
+                EnableLodGroupFilter = _sceneFilterEnableLodGroup,
+                LodGroupExpectedOn = _sceneFilterLodGroupExpected == 0,
+
+                EnableXrMotionFilter = _sceneFilterEnableXrMotion,
+                XrMotionExpectedOn = _sceneFilterXrMotionExpected == 0,
+
+                EnableDotsInstancingFilter = _sceneFilterEnableDotsInstancing,
+                DotsInstancingExpectedOn = _sceneFilterDotsInstancingExpected == 0
+            };
         }
     }
 }

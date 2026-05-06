@@ -3,7 +3,7 @@
 [![Unity 2021.3+](https://img.shields.io/badge/Unity-2021.3%2B-black.svg)](https://unity3d.com)
 [![URP](https://img.shields.io/badge/Pipeline-URP-blue.svg)](https://docs.unity3d.com/Packages/com.unity.render-pipelines.universal@latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Modules](https://img.shields.io/badge/Modules-7-brightgreen.svg)](#tổng-quan)
+[![Modules](https://img.shields.io/badge/Modules-8-brightgreen.svg)](#tổng-quan)
 
 > **Hệ thống plugin phân tích hiệu năng tự động** cho Unity URP.  
 > Phát hiện bottleneck, audit assets, và tự động phân loại frame spike ngay trong Editor.
@@ -12,7 +12,7 @@
 
 ## Tổng Quan
 
-Optifunity tích hợp **7 phân hệ**:
+Optifunity tích hợp **8 phân hệ**:
 
 | # | Phân Hệ | Phạm Vi | Trigger |
 |---|---------|---------|---------|
@@ -21,7 +21,9 @@ Optifunity tích hợp **7 phân hệ**:
 | 3 | **Shader/Materials** | Render pipeline PC vs Mobile, SRP Batcher, Draw Calls | Scan thủ công |
 | 4 | **🔬 Spike Analyzer** | Tự động phân tích bottleneck khi chọn frame trong Profiler | **Real-time, tự động** |
 | 5 | **📦 Build Analyzer** | Quét dependency build để liệt kê Material/Shader thực sự đi vào build | Scan thủ công |
-| 6 | **📱 Render Pipeline** | Visual workflow tối ưu URP mobile + phát hiện mismatch Project/URP + guidance Unity 6 GRD/Vulkan | Scan thủ công (qua Full Scan) |
+| 6 | **URP Diagnostics** | Đọc URP Asset và đề xuất setting theo target platform | Scan thủ công |
+| 7 | **📱 Mobile Render Pipeline** | 6 pipeline renderer song song: GRD, SRP Batcher, GPU Instancing, Static/Dynamic Batching, Fallback | Full Scan |
+| 8 | **🧩 Scene Renderer Audit** | Lọc renderer trong scene theo MPB, GPU Instancing, Static Batching, LOD, XR Motion, DOTS Instancing | Scene Scan / Full Scan |
 
 ---
 
@@ -122,13 +124,15 @@ d:\Optifunity\
     ├── Module6_BuildAnalyzer/
     │   └── BuildAssetScanner.cs           Quét dependency build (Materials/Shaders)
     ├── Module7_MobileWorkflow/
-    │   ├── MobileWorkflowRunner.cs        Orchestrator cho visual mobile workflow checks
-    │   ├── MobileWorkflowAnalyzer.cs      Checklist step-by-step tối ưu URP mobile
+    │   ├── MobileWorkflowGraphData.cs       Data model cho 6 pipeline renderer song song
+    │   ├── MobileWorkflowGraphBuilder.cs    Build report: GRD/SRP/Instancing/Static/Dynamic/Fallback
+    │   ├── MobileWorkflowRunner.cs          Orchestrator cho Mobile Render Pipeline report
+    │   ├── MobileWorkflowAnalyzer.cs        Chuyển setting checks thành issue list
     │   ├── ProjectSettingsMismatchAnalyzer.cs  Phát hiện lệch Project Settings vs URP
     │   └── Unity6VulkanGuidanceAnalyzer.cs     Guidance Unity 6 GRD + Vulkan path
     └── UI/
         ├── OptifunityStyles.cs            Dark theme styles
-        ├── DashboardWindow.cs             6-tab main window (gồm Spike + Build)
+        ├── DashboardWindow.cs             8-tab main window (gồm Module 7 + Module 8)
         ├── ReportWindow.cs                Filter/sort/export report viewer
         └── SpikeAnalyzerWindow.cs         Timeline + diagnosis + root-cause UI
 ```
@@ -214,7 +218,104 @@ Tự động phân loại **11 loại bottleneck** khi click bất kỳ frame n�
 
 ---
 
-## Dashboard — 7 Tabs
+### Module 7: Mobile Render Pipeline 📱
+
+Module 7 không còn xem Unity renderer như một workflow tuyến tính. Thay vào đó,
+nó hiển thị **6 pipeline tối ưu độc lập** mà Unity có thể chọn theo từng
+renderer/material/scene context:
+
+| Pipeline | Ý nghĩa | Cách xác minh |
+|----------|---------|---------------|
+| **GRD** | GPU Resident Drawer / BatchRendererGroup / indirect draw path | URP Asset + Frame Debugger |
+| **SRP Batcher** | Giảm CPU cost cho SetPass/state changes, không trực tiếp giảm draw call | URP Asset + shader compatibility |
+| **GPU Instancing** | Batch object cùng Mesh + Material bằng `DrawMeshInstanced` | Material `Enable GPU Instancing` + Scene Audit |
+| **Static Batching** | Combine object static để giảm draw setup | Player Settings + renderer static state |
+| **Dynamic Batching** | Legacy CPU batching cho mesh nhỏ | URP Asset + mesh nhỏ trong Scene Audit |
+| **Fallback** | Draw path thường khi renderer không match các path tối ưu | Frame Debugger + Scene Audit |
+
+**Cách sử dụng:**
+
+1. Mở `Tools > Optifunity > Dashboard`.
+2. Nhấn **▶ Full Scan**.
+3. Vào tab **📱 Render Pipeline**.
+4. Chọn filter `All`, `GRD`, `SRP`, `GPU Instancing`, `Static`, `Dynamic`, hoặc `Fallback`.
+5. Click **Inspect** trên pipeline card để xem các setting checks.
+6. Click **Locate** để nhảy nhanh tới nơi cấu hình liên quan:
+   - URP Asset
+   - Project Settings > Player
+   - Project Settings > Graphics
+   - Project Settings > Quality
+   - Scene Renderer Audit
+   - Frame Debugger / Material guidance
+
+**Ý nghĩa màu trạng thái:**
+
+| Trạng thái | Màu | Ý nghĩa |
+|------------|-----|---------|
+| `Matched` | Xanh | Setting đang đúng với checklist |
+| `Partial` | Vàng | Có override hoặc điều kiện cần kiểm tra thêm; không mặc định là lỗi đỏ |
+| `Mismatched` | Đỏ | Setting sai rõ ràng so với khuyến nghị mobile |
+| `Unknown` | Xám | Không đọc được field từ Unity/URP version hiện tại |
+| `Advisory` | Xanh dương | Chỉ là hướng dẫn; cần xác minh bằng scene/material/profiler |
+
+> [!IMPORTANT]
+> **Quality Override Detected** là cảnh báo màu vàng. Nếu Graphics Settings dùng
+> `URP-Medium.asset` nhưng Quality level hiện tại dùng `URP-Low.asset`, Module 7
+> không coi đây là lỗi đỏ. Nó cảnh báo để bạn biết runtime có thể đang dùng URP
+> Asset khác với asset mặc định trong Graphics Settings.
+
+**Khi nào cần Module 8/Frame Debugger?**
+
+Một số pipeline không thể kết luận chỉ bằng Project Settings:
+
+- GPU Instancing phụ thuộc Material và renderer cụ thể.
+- GRD có thể bị ảnh hưởng bởi shader compatibility, MPB, renderer type.
+- Fallback chỉ chắc chắn khi xem draw path thực tế trong Frame Debugger.
+
+Vì vậy Module 7 sẽ dùng trạng thái `Advisory` hoặc `Partial` và hướng bạn sang
+Module 8 hoặc Frame Debugger khi cần bằng chứng renderer-level.
+
+### Module 8: Scene Renderer Audit 🧩
+
+Module 8 quét các renderer trong scene đang mở để tìm điều kiện batching/render
+path ở cấp object. Đây là module bổ trợ trực tiếp cho Module 7.
+
+**Cách sử dụng:**
+
+1. Mở scene gameplay cần kiểm tra.
+2. Mở `Tools > Optifunity > Dashboard`.
+3. Vào tab **🧩 Scene Renderer Audit**.
+4. Chọn phạm vi scan:
+   - `Include Inactive`: quét cả object inactive.
+   - `Scan Skinned Mesh Renderer`: thêm SkinnedMeshRenderer vào kết quả.
+5. Bật ít nhất một filter điều kiện:
+   - **MPB**: tìm renderer có/không có `MaterialPropertyBlock`.
+   - **GPU Instancing**: tìm renderer có/không có material bật instancing.
+   - **Static Batching**: tìm renderer có/không có static batching.
+   - **LODGroup**: tìm object có/không thuộc LODGroup.
+   - **XR Motion**: kiểm tra motion-vector/XR motion state theo material.
+   - **DOTS Instancing**: kiểm tra keyword/property hỗ trợ DOTS instancing.
+6. Nhấn **Scene Scan** hoặc chạy **Full Scan**.
+7. Dùng issue list để locate object/material liên quan.
+
+**Ví dụ workflow thực tế:**
+
+| Mục tiêu | Filter nên bật |
+|----------|----------------|
+| Tìm object phá batching vì dùng MPB | MPB = On |
+| Tìm object lặp lại nhưng chưa bật instancing | GPU Instancing = Off |
+| Tìm môi trường tĩnh chưa static batch | Static Batching = Off |
+| Tìm mesh nặng thiếu LOD | LODGroup = Off |
+| Kiểm tra material có hỗ trợ DOTS/GRD path | DOTS Instancing = On/Off |
+
+> [!TIP]
+> Module 8 chỉ đọc trạng thái renderer/material tại thời điểm scan. Với vấn đề
+> runtime như script bật/tắt MPB trong Play Mode, hãy scan trong Play Mode hoặc
+> xác minh thêm bằng Frame Debugger.
+
+---
+
+## Dashboard — 8 Tabs
 
 | Tab | Nội dung |
 |-----|---------|
@@ -222,7 +323,8 @@ Tự động phân loại **11 loại bottleneck** khi click bất kỳ frame n�
 | **Code** | GC Alloc + Boxing + Memory Leak + anti-pattern/resource-management issues |
 | **Assets** | Texture + Mesh + Audio audit issues |
 | **URP** | URP settings + SRP Batcher + Draw Call issues |
-| **📱 Render Pipeline** | Visual workflow tối ưu mobile, mismatch detection, Unity 6 GRD/Vulkan guidance |
+| **🧩 Scene Renderer Audit** | Renderer-level scan theo MPB, Instancing, Static Batching, LOD, XR Motion, DOTS |
+| **📱 Render Pipeline** | 6 pipeline mobile song song + setting checks + Locate buttons |
 | **🔬 Spike** | Profiler status, frame diagnosis, bottleneck/root-cause analysis |
 | **📦 Build** | Danh sách Material/Shader thực tế đi vào build |
 

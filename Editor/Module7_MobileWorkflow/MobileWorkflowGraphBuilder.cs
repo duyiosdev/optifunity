@@ -96,8 +96,10 @@ namespace Optifunity.Editor.Module7
                 MobileSettingSourceKind.GraphicsSettings, s.IsURPActive ? s.AssetPath : "None", "UniversalRenderPipelineAsset assigned", "SRP Batcher là URP/SRP path.", "Project Settings > Graphics", "graphics", IssueSeverity.Error));
             p.Checks.Add(Check("srp_toggle", "SRP Batcher", s.SRPBatcherEnabled ? MobileNodeStatus.Matched : MobileNodeStatus.Mismatched,
                 MobileSettingSourceKind.URPAsset, OnOff(s.SRPBatcherEnabled), "On", "Giảm CPU cost cho draw setup.", "URP Asset > Advanced > SRP Batcher", "urp", IssueSeverity.Error));
-            p.Checks.Add(Check("srp_quality", "Quality Override Detected", s.GraphicsAndQualityPipelineMatch ? MobileNodeStatus.Matched : MobileNodeStatus.Partial,
-                MobileSettingSourceKind.QualitySettings, $"Graphics:{s.DefaultRenderPipelinePath} | Quality:{s.QualityRenderPipelinePath}", "Intentional override or same active target URP Asset", "Quality level đang override Render Pipeline Asset. Đây không nhất thiết là lỗi; cần đảm bảo analyzer đang đọc đúng URP asset của quality target.", "Project Settings > Graphics / Quality", "quality", IssueSeverity.Warning));
+            bool qualityOverrideDetected = !string.IsNullOrEmpty(s.QualityRenderPipelinePath)
+                && s.DefaultRenderPipelinePath != s.QualityRenderPipelinePath;
+            p.Checks.Add(Check("srp_quality", "Quality Override Detected", qualityOverrideDetected ? MobileNodeStatus.Partial : MobileNodeStatus.Matched,
+                MobileSettingSourceKind.QualitySettings, $"Graphics:{s.DefaultRenderPipelinePath} | Quality:{s.QualityRenderPipelinePath}", "No override, or intentional documented override", "Quality level đang override Render Pipeline Asset. Đây là warning vì analyzer phải đọc đúng URP asset của quality target, không mặc định coi là config sai.", "Project Settings > Graphics / Quality", "quality", IssueSeverity.Warning));
             p.Checks.Add(Check("srp_shader", "Shader SRP Batcher Compatibility", MobileNodeStatus.Advisory,
                 MobileSettingSourceKind.MaterialAsset, "Shader-level", "SRP Batcher compatible CBUFFER layout", "Xác minh trong shader/material audit hoặc Frame Debugger.", "Shader / Material assets", "material", IssueSeverity.Info));
             return p;

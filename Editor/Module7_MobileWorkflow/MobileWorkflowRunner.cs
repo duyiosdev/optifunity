@@ -8,16 +8,18 @@ namespace Optifunity.Editor.Module7
     {
         public static MobileWorkflowGraphData LastTraditionalGraph { get; private set; }
         public static MobileWorkflowGraphData LastUnity6GrdGraph { get; private set; }
+        public static MobileRenderPipelineReport LastPipelineReport { get; private set; }
 
         public static List<PerformanceIssue> RunAll(bool showProgress = true)
         {
             var all = new List<PerformanceIssue>();
 
             var snapshot = URPAssetScanner.Scan();
+            LastPipelineReport = MobileWorkflowGraphBuilder.BuildPipelineReport(snapshot);
             LastTraditionalGraph = MobileWorkflowGraphBuilder.BuildTraditional(snapshot);
             LastUnity6GrdGraph = MobileWorkflowGraphBuilder.BuildUnity6Grd(snapshot);
 
-            all.AddRange(MobileWorkflowAnalyzer.Analyze(snapshot));
+            all.AddRange(MobileWorkflowAnalyzer.Analyze(snapshot, LastPipelineReport));
             all.AddRange(ProjectSettingsMismatchAnalyzer.Analyze(snapshot));
             all.AddRange(Unity6VulkanGuidanceAnalyzer.Analyze());
 

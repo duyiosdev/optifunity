@@ -54,6 +54,13 @@ namespace Optifunity.Editor.Module4
             public bool? GpuOcclusionCullingEnabledFlag;
             public bool? ShaderStripEnabledFlag;
             public bool? BrgKeepAllVariantsFlag;
+
+            // Project / Player evidence for render pipeline workflows
+            public string DefaultRenderPipelinePath;
+            public string QualityRenderPipelinePath;
+            public bool GraphicsAndQualityPipelineMatch;
+            public bool StaticBatchingEnabled;
+            public string GraphicsApiSummary;
         }
 
         /// <summary>
@@ -74,6 +81,11 @@ namespace Optifunity.Editor.Module4
 
             snapshot.IsURPActive  = true;
             snapshot.AssetPath    = AssetDatabase.GetAssetPath(pipelineAsset);
+            snapshot.DefaultRenderPipelinePath = AssetDatabase.GetAssetPath(GraphicsSettings.defaultRenderPipeline);
+            snapshot.QualityRenderPipelinePath = AssetDatabase.GetAssetPath(QualitySettings.renderPipeline);
+            snapshot.GraphicsAndQualityPipelineMatch = GraphicsSettings.defaultRenderPipeline == QualitySettings.renderPipeline;
+            snapshot.StaticBatchingEnabled = ReadStaticBatchingEnabled();
+            snapshot.GraphicsApiSummary = BuildGraphicsApiSummary();
 
             // ─── Quality ──────────────────────────────────────────────────────
             snapshot.HdrEnabled                     = pipelineAsset.supportsHDR;
@@ -107,28 +119,109 @@ namespace Optifunity.Editor.Module4
             // Additional lights count
             snapshot.AdditionalLightCount = pipelineAsset.maxAdditionalLightsCount;
 
-            // Unity 6 / GRD-related serialized fields (best-effort)
-            TryReadBool(pipelineAsset, "m_GPUResidentDrawer", out snapshot.GpuResidentDrawerEnabledFlag);
-            TryReadBool(pipelineAsset, "m_GPUOcclusionCulling", out snapshot.GpuOcclusionCullingEnabledFlag);
-            TryReadBool(pipelineAsset, "m_ShaderStripping", out snapshot.ShaderStripEnabledFlag);
-            TryReadBool(pipelineAsset, "m_BRGKeepAllVariants", out snapshot.BrgKeepAllVariantsFlag);
+            // Unity 6 / GRD-related serialized fields (best-effort across URP versions)
+            TryReadBoolAny(pipelineAsset, out snapshot.GpuResidentDrawerEnabledFlag,
+                "m_GPUResidentDrawer", "m_GpuResidentDrawer", "m_GPUResidentDrawerMode",
+                "m_UseGPUResidentDrawer", "m_EnableGPUResidentDrawer", "m_EnableGpuResidentDrawer");
+            TryReadBoolAny(pipelineAsset, out snapshot.GpuOcclusionCullingEnabledFlag,
+                "m_GPUOcclusionCulling", "m_GpuOcclusionCulling", "m_SupportsGPUOcclusionCulling",
+                "m_EnableGPUOcclusionCulling", "m_EnableGpuOcclusionCulling");
+            TryReadBoolAny(pipelineAsset, out snapshot.ShaderStripEnabledFlag,
+                "m_ShaderStripping", "m_ShaderStrippingMode", "m_ShaderVariantLogLevel",
+                "m_UseShaderVariantStripping", "m_EnableShaderStripping");
+            TryReadBoolAny(pipelineAsset, out snapshot.BrgKeepAllVariantsFlag,
+                "m_BRGKeepAllVariants", "m_BrgKeepAllVariants", "m_KeepAllBRGVariants",
+                "m_KeepAllBatchRendererGroupVariants", "m_BatchRendererGroupKeepAllVariants");
 
             return snapshot;
         }
 
-        private static void TryReadBool(UnityEngine.Object target, string propName, out bool? value)
+        private static void TryReadBoolAny(UnityEngine.Object target, out bool? value, params string[] propNames)
         {
             value = null;
             try
             {
                 using var so = new SerializedObject(target);
-                var prop = so.FindProperty(propName);
-                if (prop != null && prop.propertyType == SerializedPropertyType.Boolean)
-                    value = prop.boolValue;
+                foreach (var propName in propNames)
+                {
+                    var prop = so.FindProperty(propName);
+                    if (TryGetBoolLikeValue(prop, out bool boolValue))
+                    {
+                        value = boolValue;
+                        return;
+                    }
+                }
             }
             catch
             {
                 value = null;
+            }
+        }
+
+        private static bool TryGetBoolLikeValue(SerializedProperty prop, out bool value)
+        {
+            value = false;
+            if (prop == null) return false;
+
+            switch (prop.propertyType)
+            {
+                case SerializedPropertyType.Boolean:
+                    value = prop.boolValue;
+                    return true;
+                case SerializedPropertyType.Integer:
+                    value = prop.intValue != 0;
+                    return true;
+                case SerializedPropertyType.Enum:
+                    value = prop.enumValueIndex != 0;
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private static bool ReadStaticBatchingEnabled()
+        {
+            BuildTargetGroup group = PlatformConfig.ActivePlatform switch
+            {
+                Runtime.TargetPlatformType.Android => BuildTargetGroup.Android,
+                Runtime.TargetPlatformType.iOS => BuildTargetGroup.iOS,
+                _ => BuildTargetGroup.Standalone
+            };
+
+            var methods = typeof(PlayerSettings).GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+            foreach (var method in methods)
+            {
+                if (method.Name != "GetBatchingForPlatform") continue;
+                var ps = method.GetParameters();
+                if (ps.Length != 3 || !ps[1].IsOut || !ps[2].IsOut) continue;
+
+                object[] args = { group, 0, 0 };
+                method.Invoke(null, args);
+                return (int)args[1] != 0;
+            }
+
+            return false;
+        }
+
+        private static string BuildGraphicsApiSummary()
+        {
+            BuildTarget target = PlatformConfig.ActivePlatform switch
+            {
+                Runtime.TargetPlatformType.Android => BuildTarget.Android,
+                Runtime.TargetPlatformType.iOS => BuildTarget.iOS,
+                _ => EditorUserBuildSettings.activeBuildTarget
+            };
+
+            try
+            {
+                var apis = PlayerSettings.GetGraphicsAPIs(target);
+                if (apis == null || apis.Length == 0) return "Auto / Default";
+                var names = System.Array.ConvertAll(apis, api => api.ToString());
+                return string.Join(", ", names);
+            }
+            catch
+            {
+                return "Unknown";
             }
         }
 

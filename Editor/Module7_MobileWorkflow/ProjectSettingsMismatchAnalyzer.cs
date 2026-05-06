@@ -29,6 +29,7 @@ namespace Optifunity.Editor.Module7
                     Description = "GraphicsSettings.defaultRenderPipeline đang null.",
                     FixSuggestion = "Gán URP Asset tại Project Settings > Graphics."
                 });
+                return issues;
             }
 
             if (defaultRp != qualityRp)
@@ -36,20 +37,20 @@ namespace Optifunity.Editor.Module7
                 issues.Add(new PerformanceIssue
                 {
                     Severity = IssueSeverity.Warning,
-                    Title = "Mismatch giữa GraphicsSettings và QualitySettings render pipeline",
-                    Description = "Render pipeline asset mặc định và asset theo quality level đang khác nhau.",
+                    Title = "Graphics/Quality Render Pipeline mismatch",
+                    Description = "GraphicsSettings.defaultRenderPipeline và QualitySettings.renderPipeline đang khác nhau.",
                     FixSuggestion = "Đồng bộ Scriptable Render Pipeline Asset giữa Graphics và Quality để tránh hành vi không nhất quán."
                 });
             }
 
-            if (defaultRp != null && defaultRp is not UniversalRenderPipelineAsset)
+            if (defaultRp is not UniversalRenderPipelineAsset)
             {
                 issues.Add(new PerformanceIssue
                 {
                     Severity = IssueSeverity.Error,
-                    Title = "Render Pipeline không phải URP",
-                    Description = "Asset pipeline hiện tại không phải UniversalRenderPipelineAsset.",
-                    FixSuggestion = "Chuyển sang URP Asset để dùng đầy đủ workflow tối ưu mobile của Optifunity."
+                    Title = "Render Pipeline hiện tại không phải URP",
+                    Description = "Asset pipeline active không phải UniversalRenderPipelineAsset.",
+                    FixSuggestion = "Chuyển sang URP Asset để dùng đúng checklist Render Pipeline của Optifunity."
                 });
             }
 
@@ -70,9 +71,9 @@ namespace Optifunity.Editor.Module7
                     issues.Add(new PerformanceIssue
                     {
                         Severity = IssueSeverity.Info,
-                        Title = "Android chưa có Vulkan trong Graphics APIs",
+                        Title = "Android thiếu Vulkan trong Graphics APIs",
                         Description = "Vulkan chưa xuất hiện trong danh sách Graphics APIs cho Android.",
-                        FixSuggestion = "Cân nhắc thêm Vulkan để benchmark theo hướng Unity 6 GRD trên thiết bị mục tiêu."
+                        FixSuggestion = "Thêm Vulkan để benchmark đúng path Unity 6 GRD trên thiết bị mục tiêu."
                     });
                 }
 
@@ -82,8 +83,8 @@ namespace Optifunity.Editor.Module7
                     {
                         Severity = IssueSeverity.Warning,
                         Title = "Android thiếu OpenGLES3 fallback",
-                        Description = "Danh sách Graphics APIs không có OpenGLES3 làm fallback.",
-                        FixSuggestion = "Giữ OpenGLES3 fallback cho dải thiết bị Android rộng hơn nếu sản phẩm cần độ phủ cao."
+                        Description = "Danh sách Graphics APIs không có OpenGLES3 fallback.",
+                        FixSuggestion = "Giữ OpenGLES3 fallback nếu project cần độ phủ thiết bị Android rộng."
                     });
                 }
             }

@@ -81,9 +81,9 @@ namespace Optifunity.Editor.UI
         private int _filterScene  = 0;
         private readonly string[] _filterLabels = { "All", "🛑 Error", "⚠️ Warning", "🔵 Info" };
 
-        private int _mobileVariant = 0; // 0: Traditional, 1: Unity 6 GRD
-        private readonly string[] _mobileVariantLabels = { "Traditional", "Unity 6 GRD" };
-        private string _selectedMobileNodeId;
+        private int _mobilePipelineFilter = 0;
+        private readonly string[] _mobilePipelineLabels = { "All", "GRD", "SRP", "GPU Instancing", "Static", "Dynamic", "Fallback" };
+        private string _selectedMobilePipelineId;
 
         private readonly string[] _onOffLabels = { "On", "Off" };
         private bool _sceneFilterEnableMpb;
@@ -991,85 +991,179 @@ namespace Optifunity.Editor.UI
 
         private void DrawMobileTab()
         {
-            GUILayout.Label("  📱 Render Pipeline", OptifunityStyles.StyleHeader);
+            GUILayout.Label("  📱 Mobile Render Pipeline", OptifunityStyles.StyleHeader);
 
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                GUILayout.Label("Workflow:", OptifunityStyles.StyleSubtitle, GUILayout.Width(70));
-                _mobileVariant = GUILayout.Toolbar(_mobileVariant, _mobileVariantLabels, GUILayout.Height(22), GUILayout.Width(260));
-                GUILayout.FlexibleSpace();
-            }
-
-            var graph = _mobileVariant == 0
-                ? MobileWorkflowRunner.LastTraditionalGraph
-                : MobileWorkflowRunner.LastUnity6GrdGraph;
-
-            if (graph == null || graph.Nodes == null || graph.Nodes.Count == 0)
+            var report = MobileWorkflowRunner.LastPipelineReport;
+            if (report == null || report.Pipelines == null || report.Pipelines.Count == 0)
             {
                 using (new EditorGUILayout.VerticalScope(OptifunityStyles.StyleCard))
                 {
-                    GUILayout.Label("Chưa có dữ liệu graph.", OptifunityStyles.StyleIssueTitle);
-                    GUILayout.Label("Chạy Full Scan để tạo graph trạng thái cho workflow đã chọn.", OptifunityStyles.StyleIssueDesc);
+                    GUILayout.Label("Chưa có dữ liệu pipeline.", OptifunityStyles.StyleIssueTitle);
+                    GUILayout.Label("Chạy Full Scan để đánh giá GRD, SRP Batcher, GPU Instancing, Static Batching, Dynamic Batching và Fallback.", OptifunityStyles.StyleIssueDesc);
                 }
 
                 GUILayout.Space(6);
-                DrawVirtualIssueList(GetCachedIssues(3), "Render Pipeline Workflow & Mismatch", "Chưa có dữ liệu — chạy Full Scan để phân tích Render Pipeline", ref _scrollMobile, ref _filterMobile);
+                DrawVirtualIssueList(GetCachedIssues(3), "Mobile Render Pipeline", "Chưa có dữ liệu — chạy Full Scan để phân tích Render Pipeline", ref _scrollMobile, ref _filterMobile);
                 return;
             }
 
             using (new EditorGUILayout.VerticalScope(OptifunityStyles.StyleCard))
             {
-                GUILayout.Label("Visual Graph", OptifunityStyles.StyleIssueTitle);
+                GUILayout.Label("Pipeline Systems — parallel per renderer", OptifunityStyles.StyleIssueTitle);
+                GUILayout.Label("Unity đánh giá từng Renderer độc lập; các hệ thống tối ưu có thể hoạt động song song thay vì một workflow tuyến tính.", OptifunityStyles.StyleIssueDesc);
                 GUILayout.Space(4);
 
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    for (int i = 0; i < graph.Nodes.Count; i++)
+                    GUILayout.Label("Filter:", OptifunityStyles.StyleSubtitle, GUILayout.Width(50));
+                    _mobilePipelineFilter = GUILayout.Toolbar(_mobilePipelineFilter, _mobilePipelineLabels, GUILayout.Height(22));
+                }
+            }
+
+            var pipelines = FilterMobilePipelines(report.Pipelines);
+            if (pipelines.Count == 0)
+                pipelines = report.Pipelines;
+
+            if (string.IsNullOrEmpty(_selectedMobilePipelineId) || pipelines.All(p => p.Id != _selectedMobilePipelineId))
+                _selectedMobilePipelineId = pipelines[0].Id;
+
+            using (new EditorGUILayout.VerticalScope(OptifunityStyles.StyleCard))
+            {
+                GUILayout.Label("Pipeline Cards", OptifunityStyles.StyleIssueTitle);
+                GUILayout.Space(4);
+
+                int columns = Mathf.Max(1, Mathf.FloorToInt((position.width - 60f) / 250f));
+                for (int i = 0; i < pipelines.Count; i += columns)
+                {
+                    using (new EditorGUILayout.HorizontalScope())
                     {
-                        var node = graph.Nodes[i];
-                        DrawMobileNodeCard(node);
-                        if (i < graph.Nodes.Count - 1)
-                        {
-                            GUILayout.Label("→", new GUIStyle(EditorStyles.boldLabel)
-                            {
-                                fontSize = 13,
-                                normal = { textColor = OptifunityStyles.TextSecondary },
-                                alignment = TextAnchor.MiddleCenter
-                            }, GUILayout.Width(18));
-                        }
+                        for (int c = 0; c < columns && i + c < pipelines.Count; c++)
+                            DrawMobilePipelineCard(pipelines[i + c]);
+                        GUILayout.FlexibleSpace();
                     }
                 }
             }
 
-            var selected = graph.Nodes.FirstOrDefault(n => n.Id == _selectedMobileNodeId) ?? graph.Nodes[0];
-            _selectedMobileNodeId = selected.Id;
+            var selected = report.Pipelines.FirstOrDefault(p => p.Id == _selectedMobilePipelineId) ?? pipelines[0];
+            DrawMobilePipelineDetails(selected);
 
+            GUILayout.Space(6);
+            DrawVirtualIssueList(GetCachedIssues(3), "Mobile Render Pipeline Issues", "Chưa có dữ liệu — chạy Full Scan để phân tích Render Pipeline", ref _scrollMobile, ref _filterMobile);
+        }
+
+        private List<MobileRenderPipelineSystem> FilterMobilePipelines(List<MobileRenderPipelineSystem> pipelines)
+        {
+            if (_mobilePipelineFilter <= 0) return pipelines;
+            string id = _mobilePipelineFilter switch
+            {
+                1 => "grd",
+                2 => "srp",
+                3 => "instancing",
+                4 => "static",
+                5 => "dynamic",
+                6 => "fallback",
+                _ => null
+            };
+            return pipelines.Where(p => p.Id == id).ToList();
+        }
+
+        private void DrawMobilePipelineCard(MobileRenderPipelineSystem pipeline)
+        {
+            Color badgeColor = GetMobileStatusColor(pipeline.Status);
+            bool isSelected = _selectedMobilePipelineId == pipeline.Id;
+            var cardStyle = new GUIStyle(OptifunityStyles.StyleCard)
+            {
+                margin = new RectOffset(3, 3, 3, 3),
+                normal = { background = isSelected ? OptifunityStyles.MakeTexture(badgeColor * 0.18f) : OptifunityStyles.StyleCard.normal.background }
+            };
+
+            using (new EditorGUILayout.VerticalScope(cardStyle, GUILayout.Width(240), GUILayout.MinHeight(150)))
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    GUILayout.Label(pipeline.Title, OptifunityStyles.StyleIssueTitle);
+                    GUILayout.FlexibleSpace();
+                    OptifunityStyles.DrawBadge(pipeline.Status.ToString(), badgeColor);
+                }
+
+                GUILayout.Label(pipeline.Subtitle, OptifunityStyles.StyleIssueDesc);
+                GUILayout.Space(3);
+                GUILayout.Label(pipeline.Goal, OptifunityStyles.StyleIssueDesc);
+                GUILayout.Space(4);
+
+                int matched = pipeline.Checks.Count(c => c.Status == MobileNodeStatus.Matched);
+                int mismatch = pipeline.Checks.Count(c => c.Status == MobileNodeStatus.Mismatched);
+                int advisory = pipeline.Checks.Count(c => c.Status == MobileNodeStatus.Advisory || c.Status == MobileNodeStatus.Partial || c.Status == MobileNodeStatus.Unknown);
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    OptifunityStyles.DrawBadge($"✓ {matched}", OptifunityStyles.ColorSuccess);
+                    GUILayout.Space(3);
+                    OptifunityStyles.DrawBadge($"! {mismatch}", mismatch > 0 ? OptifunityStyles.ColorError : OptifunityStyles.TextSecondary);
+                    GUILayout.Space(3);
+                    OptifunityStyles.DrawBadge($"i {advisory}", OptifunityStyles.ColorInfo);
+                }
+
+                GUILayout.FlexibleSpace();
+                if (GUILayout.Button(isSelected ? "Selected" : "Inspect", GUILayout.Height(20)))
+                    _selectedMobilePipelineId = pipeline.Id;
+            }
+        }
+
+        private void DrawMobilePipelineDetails(MobileRenderPipelineSystem pipeline)
+        {
             using (new EditorGUILayout.VerticalScope(OptifunityStyles.StyleCard))
             {
-                GUILayout.Label($"Node Details: {selected.Title}", OptifunityStyles.StyleIssueTitle);
-                GUILayout.Space(2);
-                GUILayout.Label($"Compliance: {selected.Status}", OptifunityStyles.StyleIssueDesc);
-                GUILayout.Label($"Source: {selected.EvidenceLevel} ({selected.SourcePathHint})", OptifunityStyles.StyleIssueDesc);
-                GUILayout.Label($"Actual State: {selected.ActualState}", OptifunityStyles.StyleIssueDesc);
-                GUILayout.Label($"Current: {selected.CurrentValue}", OptifunityStyles.StyleIssueDesc);
-                GUILayout.Label($"Recommended: {selected.RecommendedValue}", OptifunityStyles.StyleIssueDesc);
-                GUILayout.Space(4);
-                if (GUILayout.Button("Ping Setting", GUILayout.Width(110), GUILayout.Height(20)))
-                    PingMobileNodeSetting(selected);
-                GUILayout.Space(2);
-                GUILayout.Label($"💡 {selected.Suggestion}", new GUIStyle(OptifunityStyles.StyleIssueDesc)
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    GUILayout.Label($"Pipeline Details: {pipeline.Title}", OptifunityStyles.StyleIssueTitle);
+                    GUILayout.FlexibleSpace();
+                    OptifunityStyles.DrawBadge(pipeline.Status.ToString(), GetMobileStatusColor(pipeline.Status));
+                }
+
+                GUILayout.Label($"Flow: {pipeline.RenderFlow}", OptifunityStyles.StyleIssueDesc);
+                GUILayout.Label($"Use case: {pipeline.BestUseCase}", OptifunityStyles.StyleIssueDesc);
+                GUILayout.Label($"Compatibility: {pipeline.CompatibilityNotes}", OptifunityStyles.StyleIssueDesc);
+                GUILayout.Label($"Recommendation: {pipeline.Recommendation}", new GUIStyle(OptifunityStyles.StyleIssueDesc)
                 {
                     normal = { textColor = new Color(0.75f, 0.9f, 0.7f) }
                 });
-            }
 
-            GUILayout.Space(6);
-            DrawVirtualIssueList(GetCachedIssues(3), "Render Pipeline Workflow & Mismatch", "Chưa có dữ liệu — chạy Full Scan để phân tích Render Pipeline", ref _scrollMobile, ref _filterMobile);
+                GUILayout.Space(6);
+                GUILayout.Label("Setting Checks", OptifunityStyles.StyleSubtitle);
+
+                foreach (var check in pipeline.Checks)
+                    DrawMobileSettingCheck(check);
+            }
         }
 
-        private void DrawMobileNodeCard(MobileWorkflowNode node)
+        private void DrawMobileSettingCheck(MobilePipelineSettingCheck check)
         {
-            Color badgeColor = node.Status switch
+            Color statusColor = GetMobileStatusColor(check.Status);
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    OptifunityStyles.DrawBadge(check.Status.ToString(), statusColor);
+                    GUILayout.Label(check.Title, OptifunityStyles.StyleIssueTitle, GUILayout.Width(230));
+                    OptifunityStyles.DrawBadge(check.SourceKind.ToString(), OptifunityStyles.TextSecondary);
+                    GUILayout.FlexibleSpace();
+                    if (GUILayout.Button("Locate", GUILayout.Width(70), GUILayout.Height(18)))
+                        LocateMobileSetting(check);
+                }
+
+                GUILayout.Label($"Current: {check.ActualValue}", OptifunityStyles.StyleIssueDesc);
+                GUILayout.Label($"Recommended: {check.RecommendedValue}", OptifunityStyles.StyleIssueDesc);
+                GUILayout.Label($"💡 {check.Description}", new GUIStyle(OptifunityStyles.StyleIssueDesc)
+                {
+                    normal = { textColor = new Color(0.75f, 0.9f, 0.7f) }
+                });
+                GUILayout.Label($"Locate Hint: {check.LocateHint}", OptifunityStyles.StyleIssueDesc);
+            }
+        }
+
+        private Color GetMobileStatusColor(MobileNodeStatus status)
+        {
+            return status switch
             {
                 MobileNodeStatus.Matched => OptifunityStyles.ColorSuccess,
                 MobileNodeStatus.Mismatched => OptifunityStyles.ColorError,
@@ -1077,70 +1171,39 @@ namespace Optifunity.Editor.UI
                 MobileNodeStatus.Unknown => OptifunityStyles.TextSecondary,
                 _ => OptifunityStyles.ColorInfo
             };
-
-            bool isSelected = _selectedMobileNodeId == node.Id;
-            var cardStyle = new GUIStyle(OptifunityStyles.StyleCard)
-            {
-                margin = new RectOffset(2, 2, 2, 2)
-            };
-
-            using (new EditorGUILayout.VerticalScope(cardStyle, GUILayout.Width(170), GUILayout.MinHeight(90)))
-            {
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    GUILayout.Label(node.Title, OptifunityStyles.StyleIssueTitle);
-                    GUILayout.FlexibleSpace();
-                    OptifunityStyles.DrawBadge(node.Status.ToString(), badgeColor);
-                }
-
-                GUILayout.Space(2);
-                GUILayout.Label(node.CurrentValue, OptifunityStyles.StyleIssueDesc);
-                GUILayout.Label($"→ {node.RecommendedValue}", OptifunityStyles.StyleIssueDesc);
-                GUILayout.Space(4);
-
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    if (GUILayout.Button(isSelected ? "Selected" : "Inspect", GUILayout.Height(18)))
-                        _selectedMobileNodeId = node.Id;
-                    if (GUILayout.Button("Ping", GUILayout.Width(46), GUILayout.Height(18)))
-                        PingMobileNodeSetting(node);
-                }
-            }
         }
 
-        private void PingMobileNodeSetting(MobileWorkflowNode node)
+        private void LocateMobileSetting(MobilePipelineSettingCheck check)
         {
-            if (node == null) return;
+            if (check == null) return;
 
-            switch (node.Id)
+            switch (check.LocateKey)
             {
                 case "urp":
-                case "srp_batcher":
-                case "dynamic_batching":
-                case "srp_batching_on":
-                case "dynamic_batching_off":
-                case "grd_enable":
-                case "shader_strip":
                     URPAssetScanner.PingURPAsset();
                     return;
-
-                case "graphics_api":
+                case "player":
                     SettingsService.OpenProjectSettings("Project/Player");
                     return;
-
-                case "static_batching":
-                case "static_batching_off":
-                    SettingsService.OpenProjectSettings("Project/Player");
+                case "graphics":
+                    SettingsService.OpenProjectSettings("Project/Graphics");
                     return;
-
-                case "gpu_instancing":
-                case "shader_material_support":
-                case "mesh_lod":
-                    EditorUtility.DisplayDialog("Optifunity", "Node này nằm ở asset-level (Material/Shader/Model Importer). Hãy Ping asset cụ thể từ issue list bên dưới.", "OK");
+                case "quality":
+                    SettingsService.OpenProjectSettings("Project/Quality");
                     return;
-
+                case "scene":
+                    _selectedTab = 5;
+                    Repaint();
+                    EditorUtility.DisplayDialog("Optifunity", "Đã chuyển sang tab Scene Renderer Audit. Chạy Scene Scan để kiểm tra renderer/material cụ thể.", "OK");
+                    return;
+                case "frame_debugger":
+                    EditorUtility.DisplayDialog("Optifunity", "Mở Window > Analysis > Frame Debugger để xác nhận path thực tế: DrawMeshInstancedIndirect = GRD, SRP Batcher = CPU optimized path, DrawMeshInstanced = GPU Instancing, Draw Call = Fallback.", "OK");
+                    return;
+                case "material":
+                    EditorUtility.DisplayDialog("Optifunity", "Setting này nằm trên Material/Shader asset. Hãy mở material mục tiêu và kiểm tra Enable GPU Instancing hoặc shader compatibility.", "OK");
+                    return;
                 default:
-                    EditorUtility.DisplayDialog("Optifunity", "Không map được setting cụ thể cho node này.", "OK");
+                    EditorUtility.DisplayDialog("Optifunity", check.LocateHint ?? "Không map được setting cụ thể.", "OK");
                     return;
             }
         }

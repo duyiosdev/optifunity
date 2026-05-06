@@ -6,6 +6,7 @@ namespace Optifunity.Editor.Module7
 {
     public enum WorkflowVariant
     {
+        PipelineSystems,
         Traditional,
         Unity6GRD
     }
@@ -25,6 +26,56 @@ namespace Optifunity.Editor.Module7
         URPAsset,
         AssetHeuristic,
         AdvisoryOnly
+    }
+
+    public enum MobileSettingSourceKind
+    {
+        URPAsset,
+        PlayerSettings,
+        GraphicsSettings,
+        QualitySettings,
+        MaterialAsset,
+        SceneAudit,
+        FrameDebugger,
+        Advisory
+    }
+
+    [Serializable]
+    public class MobilePipelineSettingCheck
+    {
+        public string Id;
+        public string Title;
+        public MobileNodeStatus Status;
+        public MobileSettingSourceKind SourceKind;
+        public string ActualValue;
+        public string RecommendedValue;
+        public string Description;
+        public string LocateHint;
+        public string LocateKey;
+        public IssueSeverity SeverityWhenMismatch;
+    }
+
+    [Serializable]
+    public class MobileRenderPipelineSystem
+    {
+        public string Id;
+        public string Title;
+        public string Subtitle;
+        public string Goal;
+        public string RenderFlow;
+        public string BestUseCase;
+        public string CompatibilityNotes;
+        public string Recommendation;
+        public MobileNodeStatus Status;
+        public IssueSeverity SeverityWhenMismatch;
+        public List<MobilePipelineSettingCheck> Checks = new();
+    }
+
+    [Serializable]
+    public class MobileRenderPipelineReport
+    {
+        public DateTime GeneratedAt;
+        public List<MobileRenderPipelineSystem> Pipelines = new();
     }
 
     [Serializable]

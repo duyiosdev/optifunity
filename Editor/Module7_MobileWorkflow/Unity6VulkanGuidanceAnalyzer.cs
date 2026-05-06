@@ -28,22 +28,22 @@ namespace Optifunity.Editor.Module7
 
                 issues.Add(new PerformanceIssue
                 {
-                    Severity = hasVulkan ? IssueSeverity.Info : IssueSeverity.Warning,
-                    Title = "Unity 6 GRD path: Vulkan readiness",
+                    Severity = IssueSeverity.Info,
+                    Title = "[Guidance] Unity 6 GRD benchmark strategy",
                     Description = hasVulkan
-                        ? "Vulkan đã bật cho Android, có thể benchmark theo hướng Unity 6 GRD."
-                        : "Vulkan chưa bật cho Android nên thiếu baseline benchmark cho Unity 6 GRD workflow.",
-                    FixSuggestion = "Benchmark A/B giữa Vulkan và OpenGLES3 trên các thiết bị tier thấp/trung/cao trước khi chốt API mặc định."
+                        ? "Vulkan đã bật; có thể benchmark A/B giữa Vulkan và OpenGLES3 theo từng device tier."
+                        : "Vulkan chưa bật; khó benchmark đầy đủ Unity 6 GRD path trên Android.",
+                    FixSuggestion = "Đo GPU frame time và stability trên tier thấp/trung/cao trước khi chốt API mặc định."
                 });
 
                 issues.Add(new PerformanceIssue
                 {
-                    Severity = hasGles3 ? IssueSeverity.Info : IssueSeverity.Warning,
-                    Title = "Android GPU diversity fallback",
+                    Severity = IssueSeverity.Info,
+                    Title = "[Guidance] Android API fallback strategy",
                     Description = hasGles3
-                        ? "OpenGLES3 fallback đang có, phù hợp chiến lược phủ thiết bị rộng."
-                        : "Thiếu OpenGLES3 fallback, có thể rủi ro trên thiết bị Vulkan driver kém ổn định.",
-                    FixSuggestion = "Giữ fallback OpenGLES3 nếu mục tiêu là stability trên dải thiết bị Android rộng."
+                        ? "OpenGLES3 fallback đang có; phù hợp cho chiến lược phủ thiết bị rộng."
+                        : "Thiếu OpenGLES3 fallback; cân nhắc rủi ro thiết bị Vulkan driver kém ổn định.",
+                    FixSuggestion = "Quyết định fallback theo dữ liệu crash/perf từ test farm và thiết bị thật."
                 });
             }
 
@@ -52,9 +52,9 @@ namespace Optifunity.Editor.Module7
                 issues.Add(new PerformanceIssue
                 {
                     Severity = IssueSeverity.Info,
-                    Title = "Unity 6 mobile guidance cho iOS",
-                    Description = "iOS sử dụng Metal; workflow tối ưu nên tập trung shader variant stripping, overdraw, post-processing và bandwidth.",
-                    FixSuggestion = "Ưu tiên profile bằng Xcode GPU tools và so khớp workload với checklist URP mobile trong tab này."
+                    Title = "[Guidance] iOS Metal optimization focus",
+                    Description = "iOS dùng Metal; checklist nên ưu tiên shader variant control, overdraw, post-processing và bandwidth.",
+                    FixSuggestion = "Profile bằng Xcode GPU tools và đối chiếu với checklist node trong tab Render Pipeline."
                 });
             }
 

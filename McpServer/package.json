@@ -1,0 +1,13 @@
+{
+  "name": "unity-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP Server bridge to Unity Editor",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.6.0"
+  }
+}

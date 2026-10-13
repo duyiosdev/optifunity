@@ -21,6 +21,7 @@ namespace Optifunity.Editor.Module5
         private static int    _lastSelectedFrame = -1;
         private static int    _lastKnownLastFrame = -1;  // detect new profiler data
         private static double _lastPollTime;
+        private static int _lastProfilerTarget = ProfilerDriver.connectedProfiler;
         private static bool   _isEnabled;
         private static bool   _initialLoadDone;
 
@@ -29,6 +30,7 @@ namespace Optifunity.Editor.Module5
         public  static float SpikeFactor = DEFAULT_SPIKE_FACTOR;
 
         // ─── Events ────────────────────────────────────────────────────────────
+        public static event Action OnCaptureReset;
         public static event Action<int, bool>                        OnFrameSelected;
         public static event Action<IReadOnlyList<FrameTimeData>>     OnTimelineUpdated;
 
@@ -36,6 +38,8 @@ namespace Optifunity.Editor.Module5
         static SpikeDetector()
         {
             EditorApplication.update += Poll;
+            ProfilerDriver.profileLoaded += ResetCapture;
+            ProfilerDriver.profileCleared += ResetCapture;
             _isEnabled = true;
         }
 
@@ -58,6 +62,16 @@ namespace Optifunity.Editor.Module5
             get { lock (_frameBuffer) return new List<FrameTimeData>(_frameBuffer); }
         }
 
+        public static void ResetCapture()
+        {
+            _initialLoadDone = false; _lastSelectedFrame = -1; _lastKnownLastFrame = -1;
+            lock (_frameBuffer) _frameBuffer.Clear();
+            _rollingAverage = 16.67f;
+            SpikeAnalysisRunner.ClearCache();
+            OnCaptureReset?.Invoke();
+            OnTimelineUpdated?.Invoke(FrameBuffer);
+        }
+
         // ─── Poll ──────────────────────────────────────────────────────────────
         private static void Poll()
         {
@@ -65,9 +79,14 @@ namespace Optifunity.Editor.Module5
             if (now - _lastPollTime < POLL_INTERVAL_SECS) return;
             _lastPollTime = now;
 
+            if (_lastProfilerTarget != ProfilerDriver.connectedProfiler)
+            {
+                _lastProfilerTarget = ProfilerDriver.connectedProfiler;
+                ResetCapture();
+            }
             int first = ProfilerDriver.firstFrameIndex;
             int last  = ProfilerDriver.lastFrameIndex;
-            if (first < 0 || last < 0) return;
+            if (first < 0 || last < 0) { if (_initialLoadDone) ResetCapture(); return; }
 
             // ── On first valid data or after Profiler reset: bulk-load all frames ──
             bool profilerReset = last < _lastKnownLastFrame - 5;

@@ -10,9 +10,12 @@ namespace Optifunity.Editor.Module2
     /// </summary>
     public static class MeshAuditor
     {
+        public static string LastCoverage { get; private set; } = "Not scanned";
         public static List<PerformanceIssue> Audit(bool myScriptsOnly = false)
         {
             var issues = new List<PerformanceIssue>();
+            int inspected = 0, skipped = 0;
+            LastCoverage = "Incomplete (scan in progress or failed)";
             bool isMobile = PlatformConfig.IsMobile;
 
             string[] guids = AssetDatabase.FindAssets("t:Model");
@@ -21,11 +24,12 @@ namespace Optifunity.Editor.Module2
             {
                 string path = AssetDatabase.GUIDToAssetPath(guid);
                 if (path.StartsWith("Packages/")) continue;
-                if (myScriptsOnly && !UI.DashboardWindow.IsUserCodePath(path)) continue;
+                if (myScriptsOnly && !UI.DashboardWindow.IsUserCodePath(path)) { skipped++; continue; }
 
                 var importer = AssetImporter.GetAtPath(path) as ModelImporter;
-                if (importer == null) continue;
+                if (importer == null) { skipped++; continue; }
 
+                inspected++;
                 // ─── 1. Read/Write Enabled ─────────────────────────────────────
                 if (importer.isReadable)
                 {
@@ -41,7 +45,7 @@ namespace Optifunity.Editor.Module2
                                         "(Mesh Deformation, Mesh.vertices trực tiếp trong code).",
                         CanAutoFix    = true,
                         AutoFixLabel  = "Disable Read/Write",
-                        AutoFixAction = () => AutoFixReadWrite(path)
+
                     });
                 }
 
@@ -60,7 +64,7 @@ namespace Optifunity.Editor.Module2
                                         "loại bỏ keyframe dư thừa bằng nội suy mà không làm thay đổi đáng kể về hình ảnh.",
                         CanAutoFix    = true,
                         AutoFixLabel  = "Enable Anim Compression",
-                        AutoFixAction = () => AutoFixAnimCompression(path)
+
                     });
                 }
 
@@ -76,7 +80,7 @@ namespace Optifunity.Editor.Module2
                         AssetPath     = path,
                         FixSuggestion = "Thiết lập LOD Group trên prefab: LOD0 (full detail, gần camera), " +
                                         "LOD1 (50% poly, trung bình), LOD2 (25% poly, xa). " +
-                                        "Mục tiêu: tổng poly count 1-2 triệu trên mobile."
+                                        "Không có poly budget chung cho mọi thiết bị; đo workload thực tế."
                     });
                 }
 
@@ -93,36 +97,14 @@ namespace Optifunity.Editor.Module2
                         FixSuggestion = "Trong ModelImporter → Model tab → Mesh Compression: chọn 'Low' hoặc 'Medium'.",
                         CanAutoFix    = true,
                         AutoFixLabel  = "Set Mesh Compression = Low",
-                        AutoFixAction = () => AutoFixMeshCompression(path)
+
                     });
                 }
             }
 
+            LastCoverage = $"Model: inspected={inspected}, skipped={skipped}; top-level imported assets under Assets only; package/generated/sub-asset coverage excluded";
             return issues;
         }
 
-        private static void AutoFixReadWrite(string path)
-        {
-            var importer = AssetImporter.GetAtPath(path) as ModelImporter;
-            if (importer == null) return;
-            importer.isReadable = false;
-            importer.SaveAndReimport();
-        }
-
-        private static void AutoFixAnimCompression(string path)
-        {
-            var importer = AssetImporter.GetAtPath(path) as ModelImporter;
-            if (importer == null) return;
-            importer.animationCompression = ModelImporterAnimationCompression.Optimal;
-            importer.SaveAndReimport();
-        }
-
-        private static void AutoFixMeshCompression(string path)
-        {
-            var importer = AssetImporter.GetAtPath(path) as ModelImporter;
-            if (importer == null) return;
-            importer.meshCompression = ModelImporterMeshCompression.Low;
-            importer.SaveAndReimport();
-        }
     }
 }

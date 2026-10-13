@@ -21,7 +21,11 @@ namespace Optifunity.Editor.Module7
             report.Pipelines.Add(BuildFallback(snapshot));
 
             foreach (var pipeline in report.Pipelines)
+            {
+                if (!snapshot.IsURPActive)
+                    foreach (var check in pipeline.Checks) check.Status = MobileNodeStatus.NotApplicable;
                 pipeline.Status = AggregateStatus(pipeline.Checks);
+            }
 
             return report;
         }
@@ -63,15 +67,15 @@ namespace Optifunity.Editor.Module7
             p.Checks.Add(Check("grd_toggle", "GPU Resident Drawer", grdKnown ? BoolStatus(s.GpuResidentDrawerEnabledFlag.Value) : MobileNodeStatus.Unknown,
                 MobileSettingSourceKind.URPAsset, grdKnown ? OnOff(s.GpuResidentDrawerEnabledFlag.Value) : "Unknown", "On",
                 "Toggle GRD đọc best-effort từ serialized URP asset.", "URP Asset / Renderer settings", "urp", IssueSeverity.Error));
-            p.Checks.Add(Check("grd_occlusion", "GPU Occlusion Culling", occKnown ? BoolStatus(s.GpuOcclusionCullingEnabledFlag.Value) : MobileNodeStatus.Unknown,
+            p.Checks.Add(Check("grd_occlusion", "GPU Occlusion Culling (optional)", MobileNodeStatus.Advisory,
                 MobileSettingSourceKind.URPAsset, occKnown ? OnOff(s.GpuOcclusionCullingEnabledFlag.Value) : "Unknown", "On",
                 "GPU culling là lợi thế chính của GRD cho scene lớn.", "URP Asset / Renderer settings", "urp", IssueSeverity.Warning));
             p.Checks.Add(Check("grd_brg", "Shader Strip + BRG Variants", (stripKnown && brgKnown) ? BoolStatus(s.ShaderStripEnabledFlag.Value && s.BrgKeepAllVariantsFlag.Value) : MobileNodeStatus.Unknown,
                 MobileSettingSourceKind.URPAsset,
                 (stripKnown || brgKnown) ? $"Strip:{OnOff(s.ShaderStripEnabledFlag ?? false)}, BRG KeepAll:{OnOff(s.BrgKeepAllVariantsFlag ?? false)}" : "Unknown",
                 "Strip: On, BRG KeepAll: On", "Giữ variants cần thiết để tránh fallback shader/runtime.", "URP Asset serialized shader settings", "urp", IssueSeverity.Warning));
-            p.Checks.Add(Check("grd_static_off", "Static Batching Policy", !s.StaticBatchingEnabled ? MobileNodeStatus.Matched : MobileNodeStatus.Mismatched,
-                MobileSettingSourceKind.PlayerSettings, OnOff(s.StaticBatchingEnabled), "Off",
+            p.Checks.Add(Check("grd_static_off", "Static Batching Policy", MobileNodeStatus.Advisory,
+                MobileSettingSourceKind.PlayerSettings, s.StaticBatchingEnabledFlag.HasValue ? OnOff(s.StaticBatchingEnabledFlag.Value) : "Unknown", "Off",
                 "Tài liệu khuyến nghị tắt Static Batching khi dùng GRD để tránh xung đột chiến lược batching.", "Project Settings > Player > Static Batching", "player", IssueSeverity.Warning));
             p.Checks.Add(Check("grd_dynamic_off", "Dynamic Batching Policy", !s.DynamicBatchingEnabled ? MobileNodeStatus.Matched : MobileNodeStatus.Mismatched,
                 MobileSettingSourceKind.URPAsset, OnOff(s.DynamicBatchingEnabled), "Off",
@@ -80,6 +84,14 @@ namespace Optifunity.Editor.Module7
                 MobileSettingSourceKind.SceneAudit, "Asset-level", "No incompatible MPB/shader usage",
                 "GRD không hoạt động nếu renderer dùng MPB hoặc shader không phù hợp; xác minh bằng Module 8/Frame Debugger.", "Scene Renderer Audit / Frame Debugger", "scene", IssueSeverity.Info));
 
+            p.Checks.Add(Check("grd_renderer", "Forward+ renderer support", s.GrdRendererSupported.HasValue ?
+                (s.GrdRendererSupported.Value ? MobileNodeStatus.Matched : MobileNodeStatus.Mismatched) : MobileNodeStatus.Unknown,
+                MobileSettingSourceKind.URPAsset, s.GrdSupportReason ?? "Unknown", "Compatible Forward+ renderers",
+                "Read from the pinned URP API; not a device capability measurement.", "URP Renderer", "urp", IssueSeverity.Warning));
+            p.Checks.Add(Check("grd_device", "Target device compute capability", MobileNodeStatus.Unknown,
+                MobileSettingSourceKind.Advisory, "Not captured", "Verify on target device", "Editor GPU is not target device evidence.", "Device capture", "advisory", IssueSeverity.Info));
+            if (s.GpuResidentDrawerEnabledFlag == false)
+                foreach (var check in p.Checks) if (check.Status == MobileNodeStatus.Mismatched) check.Status = MobileNodeStatus.Advisory;
             return p;
         }
 
@@ -108,7 +120,7 @@ namespace Optifunity.Editor.Module7
         private static MobileRenderPipelineSystem BuildGpuInstancing(URPAssetScanner.URPSettingsSnapshot s)
         {
             var p = NewPipeline("instancing", "GPU Instancing (Traditional)", "Giảm draw calls bằng DrawMeshInstanced",
-                "Batch các renderer cùng Mesh + Material, tối đa khoảng 1023 instances mỗi batch.",
+                "Batch các renderer tương thích; số instance mỗi batch phụ thuộc API và dữ liệu.",
                 "Instance 1..N → DrawMeshInstanced → ít draw calls hơn.",
                 "Nhóm object lặp lại vừa phải khi không dùng GRD.",
                 "Thường không chạy song song hiệu quả với SRP Batcher cho cùng path; MPB có giới hạn.",
@@ -134,8 +146,8 @@ namespace Optifunity.Editor.Module7
                 "Không khuyến nghị dùng cùng GRD; object thay đổi không phù hợp.",
                 "Bật khi scene static và memory budget cho phép.", IssueSeverity.Warning);
 
-            p.Checks.Add(Check("sb_toggle", "Player Static Batching", s.StaticBatchingEnabled ? MobileNodeStatus.Matched : MobileNodeStatus.Mismatched,
-                MobileSettingSourceKind.PlayerSettings, OnOff(s.StaticBatchingEnabled), "On for static environment path", "Player setting quyết định static batching theo platform.", "Project Settings > Player > Static Batching", "player", IssueSeverity.Warning));
+            p.Checks.Add(Check("sb_toggle", "Player Static Batching", MobileNodeStatus.Advisory,
+                MobileSettingSourceKind.PlayerSettings, s.StaticBatchingEnabledFlag.HasValue ? OnOff(s.StaticBatchingEnabledFlag.Value) : "Unknown", "On for static environment path", "Player setting quyết định static batching theo platform.", "Project Settings > Player > Static Batching", "player", IssueSeverity.Warning));
             p.Checks.Add(Check("sb_memory", "Memory Overhead", MobileNodeStatus.Advisory,
                 MobileSettingSourceKind.Advisory, "Scene-dependent", "Profile mesh memory", "Static batching copy mesh data nên có thể tăng memory trên mobile.", "Memory Profiler / Build Report", "advisory", IssueSeverity.Info));
             p.Checks.Add(Check("sb_static_flags", "Renderer Static Flags", MobileNodeStatus.Advisory,
@@ -161,7 +173,7 @@ namespace Optifunity.Editor.Module7
 
         private static MobileRenderPipelineSystem BuildFallback(URPAssetScanner.URPSettingsSnapshot s)
         {
-            var p = NewPipeline("fallback", "Fallback (Normal Draw)", "Không tối ưu: mỗi renderer = draw call",
+            var p = NewPipeline("fallback", "Fallback (Normal Draw)", "Normal draw; draw count depends on passes and submeshes",
                 "Renderer không thỏa điều kiện các hệ thống tối ưu sẽ đi normal draw.",
                 "Draw Call 1, 2, N → CPU + GPU cost cao.",
                 "Chỉ là trạng thái fallback cần giảm thiểu, không phải mục tiêu cấu hình.",
@@ -171,7 +183,7 @@ namespace Optifunity.Editor.Module7
             p.Checks.Add(Check("fd_urp", "URP Active For Diagnostics", s.IsURPActive ? MobileNodeStatus.Matched : MobileNodeStatus.Mismatched,
                 MobileSettingSourceKind.GraphicsSettings, s.IsURPActive ? s.AssetPath : "None", "URP active", "Nếu URP inactive, các tối ưu URP không được đánh giá đúng.", "Project Settings > Graphics", "graphics", IssueSeverity.Error));
             p.Checks.Add(Check("fd_frame_debugger", "Frame Debugger Verification", MobileNodeStatus.Advisory,
-                MobileSettingSourceKind.FrameDebugger, "Manual", "Look for DrawMeshInstancedIndirect / SRP Batcher / DrawMeshInstanced", "Frame Debugger là nguồn xác nhận path thực tế theo tài liệu.", "Window > Analysis > Frame Debugger", "frame_debugger", IssueSeverity.Info));
+                MobileSettingSourceKind.FrameDebugger, "Manual", "Inspect Hybrid Batch Group / SRP Batcher / instanced draws and batch-break reasons", "Frame Debugger là nguồn xác nhận path thực tế theo tài liệu.", "Window > Analysis > Frame Debugger", "frame_debugger", IssueSeverity.Info));
             p.Checks.Add(Check("fd_scene", "Scene Renderer Audit", MobileNodeStatus.Advisory,
                 MobileSettingSourceKind.SceneAudit, "Manual", "Audit MPB / instancing / static / LOD", "Dùng Module 8 để tìm renderer dễ rơi vào fallback.", "Optifunity > Scene Renderer Audit", "scene", IssueSeverity.Info));
             return p;
@@ -215,6 +227,8 @@ namespace Optifunity.Editor.Module7
         private static MobileNodeStatus AggregateStatus(IReadOnlyList<MobilePipelineSettingCheck> checks)
         {
             if (checks == null || checks.Count == 0) return MobileNodeStatus.Unknown;
+            if (checks.All(c => c.Status == MobileNodeStatus.NotApplicable)) return MobileNodeStatus.NotApplicable;
+            if (checks.Any(c => c.Status == MobileNodeStatus.Unsupported)) return MobileNodeStatus.Unsupported;
             if (checks.Any(c => c.Status == MobileNodeStatus.Mismatched)) return MobileNodeStatus.Mismatched;
             if (checks.Any(c => c.Status == MobileNodeStatus.Partial)) return MobileNodeStatus.Partial;
             if (checks.Any(c => c.Status == MobileNodeStatus.Unknown)) return MobileNodeStatus.Unknown;

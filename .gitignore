@@ -26,3 +26,15 @@ UserSettings/
 MemoryCaptures/
 Build/
 Builds/
+
+# Local validation project and generated results
+.validation/
+
+# Local MCP dependencies
+McpServer/node_modules/
+McpServer/__pycache__/
+
+McpServer/node_modules.meta
+McpServer/__pycache__.meta
+
+Tools~/__pycache__/

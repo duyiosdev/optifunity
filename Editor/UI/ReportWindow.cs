@@ -106,13 +106,14 @@ namespace Optifunity.Editor.UI
 
                 GUILayout.Space(10);
                 Color hc = OptifunityStyles.GetHealthColor(report.HealthScore);
-                GUILayout.Label($"Health: {report.HealthScore}/100",
+                GUILayout.Label($"Rule score: {report.ScoreLabel}",
                     new GUIStyle(EditorStyles.boldLabel) { normal = { textColor = hc } });
             }
         }
 
         private void DrawFilteredIssues(ScanReport report)
         {
+            EditorGUILayout.HelpBox(report.Scope + "\n" + report.Completion + "\n" + string.Join("; ", report.ModuleCoverage), MessageType.Info);
             var issues = report.AllIssues.AsEnumerable();
 
             // Apply filters

@@ -11,6 +11,7 @@ namespace Optifunity.Editor.Core
     /// </summary>
     public static class PlatformConfig
     {
+        private static string Key(string name) => "Optifunity:" + Application.dataPath + ":" + name;
         private const string PREF_PLATFORM        = "Optifunity_Platform";
         private const string PREF_ANDROID_RAM     = "Optifunity_AndroidRamMB";
         private const string PREF_IOS_FACTOR      = "Optifunity_iOSSafetyFactor";
@@ -25,8 +26,8 @@ namespace Optifunity.Editor.Core
         /// </summary>
         public static string MyScriptsFolders
         {
-            get => UnityEditor.EditorPrefs.GetString(PREF_MY_SCRIPTS_FOLDERS, "Assets/Scripts");
-            set => UnityEditor.EditorPrefs.SetString(PREF_MY_SCRIPTS_FOLDERS, value);
+            get => UnityEditor.EditorPrefs.GetString(Key(PREF_MY_SCRIPTS_FOLDERS), "Assets/Scripts");
+            set => UnityEditor.EditorPrefs.SetString(Key(PREF_MY_SCRIPTS_FOLDERS), value);
         }
 
         public static List<string> GetMyScriptsFoldersList()
@@ -42,8 +43,8 @@ namespace Optifunity.Editor.Core
         }
         public static TargetPlatformType ActivePlatform
         {
-            get => (TargetPlatformType)UnityEditor.EditorPrefs.GetInt(PREF_PLATFORM, (int)TargetPlatformType.Android);
-            set => UnityEditor.EditorPrefs.SetInt(PREF_PLATFORM, (int)value);
+            get => (TargetPlatformType)UnityEditor.EditorPrefs.GetInt(Key(PREF_PLATFORM), (int)TargetPlatformType.Android);
+            set => UnityEditor.EditorPrefs.SetInt(Key(PREF_PLATFORM), (int)value);
         }
 
         public static bool IsMobile =>
@@ -54,8 +55,8 @@ namespace Optifunity.Editor.Core
         /// <summary>RAM vật lý thiết bị mục tiêu Android (MB)</summary>
         public static int AndroidPhysicalRamMB
         {
-            get => UnityEditor.EditorPrefs.GetInt(PREF_ANDROID_RAM, 4096);
-            set => UnityEditor.EditorPrefs.SetInt(PREF_ANDROID_RAM, value);
+            get => UnityEditor.EditorPrefs.GetInt(Key(PREF_ANDROID_RAM), 4096);
+            set => UnityEditor.EditorPrefs.SetInt(Key(PREF_ANDROID_RAM), value);
         }
 
         public static float AvailableBudgetMB         => AndroidPhysicalRamMB * 0.70f;
@@ -66,29 +67,29 @@ namespace Optifunity.Editor.Core
         // ─── iOS ───────────────────────────────────────────────────────────────
         public static float iOSSafetyFactor
         {
-            get => UnityEditor.EditorPrefs.GetFloat(PREF_IOS_FACTOR, 0.55f);
-            set => UnityEditor.EditorPrefs.SetFloat(PREF_IOS_FACTOR, value);
+            get => UnityEditor.EditorPrefs.GetFloat(Key(PREF_IOS_FACTOR), 0.55f);
+            set => UnityEditor.EditorPrefs.SetFloat(Key(PREF_IOS_FACTOR), value);
         }
 
         // ─── Auto-Fix Mode ─────────────────────────────────────────────────────
         public static bool AutoFixEnabled
         {
-            get => UnityEditor.EditorPrefs.GetBool(PREF_AUTOFIX_ENABLED, false);
-            set => UnityEditor.EditorPrefs.SetBool(PREF_AUTOFIX_ENABLED, value);
+            get => false;
+            set { /* Automatic writes remain disabled until their safety preconditions are verified. */ }
         }
 
         // ─── Asset Thresholds ──────────────────────────────────────────────────
         public static int MaxTextureSizeMobile
         {
-            get => UnityEditor.EditorPrefs.GetInt(PREF_MAX_TEX_MOBILE, 1024);
-            set => UnityEditor.EditorPrefs.SetInt(PREF_MAX_TEX_MOBILE, value);
+            get => UnityEditor.EditorPrefs.GetInt(Key(PREF_MAX_TEX_MOBILE), 1024);
+            set => UnityEditor.EditorPrefs.SetInt(Key(PREF_MAX_TEX_MOBILE), value);
         }
 
         /// <summary>Ngưỡng giây: AudioClip > này sẽ bị cảnh báo nếu không Streaming</summary>
         public static float AudioStreamingThresholdSeconds
         {
-            get => UnityEditor.EditorPrefs.GetFloat(PREF_AUDIO_STREAM_THRESHOLD, 5f);
-            set => UnityEditor.EditorPrefs.SetFloat(PREF_AUDIO_STREAM_THRESHOLD, value);
+            get => UnityEditor.EditorPrefs.GetFloat(Key(PREF_AUDIO_STREAM_THRESHOLD), 5f);
+            set => UnityEditor.EditorPrefs.SetFloat(Key(PREF_AUDIO_STREAM_THRESHOLD), value);
         }
 
         // ─── Computed ─────────────────────────────────────────────────────────

@@ -7,13 +7,14 @@ namespace Optifunity.Editor.Module1
 {
     /// <summary>
     /// Điều phối toàn bộ quá trình phân tích mã nguồn C#:
-    /// tìm tất cả scripts, chạy các bộ analyzer (Regex-based), tổng hợp về ReportEngine.
+    /// tìm tất cả scripts, chạy các bộ analyzer (Roslyn semantic), tổng hợp về ReportEngine.
     /// </summary>
     public static class CodeAnalysisRunner
     {
         private static bool _isRunning;
+        public static string LastCoverage { get; private set; } = "Not scanned";
 
-        public static List<Core.PerformanceIssue> RunAll(bool showProgress = true, bool myScriptsOnly = false)
+        public static List<Core.PerformanceIssue> RunAll(bool showProgress = true, bool myScriptsOnly = false, System.Func<bool> shouldCancel = null)
         {
             if (_isRunning)
             {
@@ -22,8 +23,12 @@ namespace Optifunity.Editor.Module1
             }
 
             _isRunning = true;
+            SemanticCodeAnalyzer.Clear();
             var allIssues = new List<Core.PerformanceIssue>();
 
+            int scanned = 0, skipped = 0;
+            bool incomplete = false;
+            LastCoverage = "In progress";
             try
             {
                 string[] guids = AssetDatabase.FindAssets("t:Script", new[] { "Assets" });
@@ -34,11 +39,12 @@ namespace Optifunity.Editor.Module1
                     string guid      = guids[idx];
                     string assetPath = AssetDatabase.GUIDToAssetPath(guid);
 
-                    if (assetPath.Contains("/Packages/") || assetPath.Contains("\\Packages\\") || assetPath.Contains(".g.cs"))
+                    if (!assetPath.EndsWith(".cs", System.StringComparison.OrdinalIgnoreCase) || assetPath.Contains("/Packages/") || assetPath.Contains("\\Packages\\") || assetPath.Contains(".g.cs"))
                         continue;
 
                     if (myScriptsOnly && !UI.DashboardWindow.IsUserCodePath(assetPath))
-                        continue;
+                    { skipped++; continue; }
+                    if (shouldCancel?.Invoke() == true) { incomplete = true; break; }
 
                     if (showProgress)
                     {
@@ -47,21 +53,21 @@ namespace Optifunity.Editor.Module1
                             "Optifunity — Code Analysis",
                             $"Phân tích: {Path.GetFileName(assetPath)}",
                             progress);
-                        if (cancelled) break;
+                        if (cancelled) { incomplete = true; break; }
                     }
 
                     string fullPath = Path.GetFullPath(assetPath);
-                    if (!File.Exists(fullPath)) continue;
+                    if (!File.Exists(fullPath)) { skipped++; incomplete = true; continue; }
 
                     string[] lines;
                     try { lines = File.ReadAllLines(fullPath); }
-                    catch { continue; }
+                    catch { skipped++; incomplete = true; continue; }
 
                     // ─── Chạy các bộ phân tích (Regex-based) ───────────────────────────
                     var gcIssues     = GCAllocAnalyzer.Analyze(fullPath, lines);
                     var boxIssues    = BoxingAnalyzer.Analyze(fullPath, lines);
                     var leakIssues   = MemLeakAnalyzer.Analyze(fullPath, lines);
-                    var antiIssues   = PerformanceAntiPatternAnalyzer.Analyze(fullPath, lines);
+                    var antiIssues   = new List<Core.PerformanceIssue>(); // Legacy lexical heuristics are not semantic evidence.
                     var resourceIssues = ResourceManagementAnalyzer.Analyze(fullPath, lines);
 
                     // Gán AssetPath cho tất cả issues
@@ -76,10 +82,15 @@ namespace Optifunity.Editor.Module1
                     allIssues.AddRange(leakIssues);
                     allIssues.AddRange(antiIssues);
                     allIssues.AddRange(resourceIssues);
+                    scanned++;
                 }
             }
+            catch { incomplete = true; throw; }
             finally
             {
+                incomplete |= allIssues.Exists(i => i.RuleId == "code.unresolved");
+                LastCoverage = $"{(incomplete ? "Incomplete" : "Complete within selected scope")}: Assets C#; MyScripts={myScriptsOnly}; scanned={scanned}; skipped={skipped}; Packages/generated sources excluded";
+                SemanticCodeAnalyzer.Clear();
                 _isRunning = false;
                 if (showProgress) EditorUtility.ClearProgressBar();
             }

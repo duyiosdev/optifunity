@@ -17,7 +17,9 @@ namespace Optifunity.Editor.Module7
         Mismatched,
         Partial,
         Unknown,
-        Advisory
+        Advisory,
+        NotApplicable,
+        Unsupported
     }
 
     public enum MobileNodeEvidenceLevel

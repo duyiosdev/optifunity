@@ -1,0 +1,160 @@
+{
+  "rules": [
+    {
+      "revision": 1,
+      "verifiedAt": "2026-10-13",
+      "applicability": "Unity 6000.0.58f2 / URP 17.0.4 validation baseline; C# 9 and resolved compilation symbols",
+      "exclusions": "No device performance guarantee; unresolved symbols and unsupported contexts cannot produce confirmed conclusions",
+      "severity": "Warning",
+      "evidenceLevel": "Confirmed static operation",
+      "tradeoffs": "Changing lifetime or storage can change behavior and memory retention; profile and review ownership",
+      "verificationSteps": "Run EditMode regression and confirm affected code path with target-device profiling",
+      "fixPolicy": "Manual only",
+      "ruleId": "code.allocation",
+      "category": "Code",
+      "sources": [
+        "https://learn.microsoft.com/en-us/dotnet/standard/garbage-collection/fundamentals"
+      ],
+      "verificationStatus": "Verified concept",
+      "requiredEvidence": "Resolved reference construction/array or nonconstant string concatenation inside direct gameplay method body",
+      "recommendation": "Measure allocation; reuse storage when ownership permits",
+      "tests": "T01,T02,T07"
+    },
+    {
+      "revision": 1,
+      "verifiedAt": "2026-10-13",
+      "applicability": "Unity 6000.0.58f2 / URP 17.0.4 validation baseline; C# 9 and resolved compilation symbols",
+      "exclusions": "No device performance guarantee; unresolved symbols and unsupported contexts cannot produce confirmed conclusions",
+      "severity": "Warning",
+      "evidenceLevel": "Confirmed static operation",
+      "tradeoffs": "Changing lifetime or storage can change behavior and memory retention; profile and review ownership",
+      "verificationSteps": "Run EditMode regression and confirm affected code path with target-device profiling",
+      "fixPolicy": "Manual only",
+      "ruleId": "code.boxing",
+      "category": "Code",
+      "sources": [
+        "https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/types/boxing-and-unboxing"
+      ],
+      "verificationStatus": "Verified concept",
+      "requiredEvidence": "Roslyn boxing conversion with resolved source and target types",
+      "recommendation": "Prefer typed storage or generic APIs where semantics are preserved",
+      "tests": "T03,T04"
+    },
+    {
+      "revision": 1,
+      "verifiedAt": "2026-10-13",
+      "applicability": "Unity 6000.0.58f2 / URP 17.0.4 validation baseline; C# 9 and resolved compilation symbols",
+      "exclusions": "No device performance guarantee; unresolved symbols and unsupported contexts cannot produce confirmed conclusions",
+      "severity": "Info",
+      "evidenceLevel": "Advisory",
+      "tradeoffs": "Changing lifetime or storage can change behavior and memory retention; profile and review ownership",
+      "verificationSteps": "Run EditMode regression and confirm affected code path with target-device profiling",
+      "fixPolicy": "Manual only",
+      "ruleId": "code.event-lifetime",
+      "category": "Code",
+      "sources": [
+        "https://learn.microsoft.com/en-us/dotnet/standard/garbage-collection/fundamentals"
+      ],
+      "verificationStatus": "Verified concept; lifetime inference not verified",
+      "requiredEvidence": "Resolved IEventSymbol subscription; GC roots and publisher lifetime not established",
+      "recommendation": "Review roots and cleanup; do not claim leak from subscription alone",
+      "tests": "T05"
+    },
+    {
+      "revision": 1,
+      "verifiedAt": "2026-10-13",
+      "applicability": "Unity 6000.0.58f2 / URP 17.0.4 validation baseline; C# 9 and resolved compilation symbols",
+      "exclusions": "No device performance guarantee; unresolved symbols and unsupported contexts cannot produce confirmed conclusions",
+      "severity": "Info",
+      "evidenceLevel": "Advisory",
+      "tradeoffs": "Changing lifetime or storage can change behavior and memory retention; profile and review ownership",
+      "verificationSteps": "Run EditMode regression and confirm affected code path with target-device profiling",
+      "fixPolicy": "Manual only",
+      "ruleId": "code.resources",
+      "category": "Code",
+      "sources": [
+        "https://docs.unity3d.com/6000.0/Documentation/ScriptReference/Resources.Load.html"
+      ],
+      "verificationStatus": "Verified API; performance impact unmeasured",
+      "requiredEvidence": "Resolved Unity Resources.Load/LoadAll or Unity Object operation inside syntactic loop",
+      "recommendation": "Measure loading/creation cost; consider asynchronous loading or pooling",
+      "tests": "T06"
+    },
+    {
+      "revision": 1,
+      "verifiedAt": "2026-10-13",
+      "applicability": "Source files whose Unity compilation context is unavailable or has unresolved diagnostics",
+      "exclusions": "No device performance guarantee; unresolved symbols and unsupported contexts cannot produce confirmed conclusions",
+      "severity": "Info",
+      "evidenceLevel": "Advisory",
+      "tradeoffs": "Suppressing a diagnostic cannot prove the unexamined code safe",
+      "verificationSteps": "Run EditMode regression and confirm affected code path with target-device profiling",
+      "fixPolicy": "Manual only",
+      "ruleId": "code.unresolved",
+      "category": "Status",
+      "sources": [],
+      "verificationStatus": "Operational status",
+      "requiredEvidence": "Missing semantic context",
+      "recommendation": "Resolve compilation errors/references and rescan",
+      "tests": "T04"
+    },
+    {
+      "revision": 1,
+      "verifiedAt": "2026-10-13",
+      "applicability": "Unity 6000.0.58f2 / URP 17.0.4; Editor data only; target-device capability and frame timings require separate measurement",
+      "exclusions": "No device performance guarantee; unresolved symbols and unsupported contexts cannot produce confirmed conclusions",
+      "severity": "Info",
+      "evidenceLevel": "Advisory",
+      "tradeoffs": "Batching strategies can increase memory or change shader compatibility; counts alone cannot establish CPU/GPU cost",
+      "verificationSteps": "Run EditMode regression and confirm affected code path with target-device profiling",
+      "fixPolicy": "Manual only",
+      "ruleId": "render.shader-compatibility",
+      "category": "Rendering",
+      "sources": [
+        "https://docs.unity3d.com/6000.0/Documentation/Manual/optimizing-draw-calls-choose-method.html"
+      ],
+      "verificationStatus": "Advisory; compiled shader not inspected",
+      "requiredEvidence": "Shader asset path only; source text is insufficient",
+      "recommendation": "Inspect compiled shader and Frame Debugger",
+      "tests": "T21"
+    },
+    {
+      "revision": 1,
+      "verifiedAt": "2026-10-13",
+      "applicability": "Legacy asset/settings/scene detectors within the explicitly reported scan scope; per-rule platform and usage conditions remain unverified",
+      "exclusions": "No device performance guarantee; unresolved symbols and unsupported contexts cannot produce confirmed conclusions",
+      "severity": "Info",
+      "evidenceLevel": "Advisory",
+      "tradeoffs": "Changing settings from an unverified heuristic can reduce quality, break runtime usage or regress performance",
+      "verificationSteps": "Run EditMode regression and confirm affected code path with target-device profiling",
+      "fixPolicy": "Manual only",
+      "ruleId": "legacy.unverified",
+      "category": "Legacy",
+      "sources": [],
+      "verificationStatus": "Unverified",
+      "requiredEvidence": "Legacy detector output without individually verified source/evidence mapping",
+      "recommendation": "Treat as a hypothesis only; verify applicability and measure before changing settings",
+      "tests": "T22"
+    },
+    {
+      "revision": 1,
+      "verifiedAt": "2026-10-13",
+      "applicability": "Unity 6000.0.58f2 / URP 17.0.4; Editor data only; target-device capability and frame timings require separate measurement",
+      "exclusions": "No device performance guarantee; unresolved symbols and unsupported contexts cannot produce confirmed conclusions",
+      "severity": "Info",
+      "evidenceLevel": "Measured Editor counters",
+      "tradeoffs": "Batching strategies can increase memory or change shader compatibility; counts alone cannot establish CPU/GPU cost",
+      "verificationSteps": "Run EditMode regression and confirm affected code path with target-device profiling",
+      "fixPolicy": "Manual only",
+      "ruleId": "render.counters",
+      "category": "Rendering",
+      "sources": [
+        "https://docs.unity3d.com/6000.0/Documentation/Manual/optimizing-draw-calls-choose-method.html"
+      ],
+      "verificationStatus": "Verified Unity 6000.0.58f2 adapter by integration test",
+      "requiredEvidence": "Successful read of all five UnityStats properties in Play Mode",
+      "recommendation": "Measure CPU/GPU timings; do not diagnose bottlenecks from counts alone",
+      "tests": "T08"
+    }
+  ]
+}

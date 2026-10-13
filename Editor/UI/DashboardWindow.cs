@@ -152,6 +152,8 @@ namespace Optifunity.Editor.UI
             EditorGUI.DrawRect(new Rect(0, 0, position.width, position.height), OptifunityStyles.BgDark);
 
             DrawHeader();
+            EditorGUILayout.HelpBox("Scope: Assets + loaded scene/settings. My Scripts filters code only. Legacy findings are unverified advisory; score is not measured performance. Auto-fix is disabled.", MessageType.Info);
+            if (_lastReport != null) EditorGUILayout.LabelField(string.Join("; ", _lastReport.ModuleCoverage), EditorStyles.wordWrappedMiniLabel);
             DrawToolbar();
             DrawTabContent();
             DrawStatusBar();
@@ -175,7 +177,7 @@ namespace Optifunity.Editor.UI
                 if (_lastReport != null)
                 {
                     int score = _lastReport.HealthScore;
-                    Color scoreColor = OptifunityStyles.GetHealthColor(score);
+                    Color scoreColor = _lastReport.HasScoreEvidence ? OptifunityStyles.GetHealthColor(score) : OptifunityStyles.TextSecondary;
                     GUILayout.BeginVertical(GUILayout.Width(80));
                     GUILayout.Space(8);
                     var scoreStyle = new GUIStyle(EditorStyles.boldLabel)
@@ -184,13 +186,13 @@ namespace Optifunity.Editor.UI
                         alignment = TextAnchor.MiddleCenter,
                         normal    = { textColor = scoreColor }
                     };
-                    GUILayout.Label($"{score}", scoreStyle, GUILayout.Width(80));
+                    GUILayout.Label(_lastReport.HasScoreEvidence ? $"{score}" : "N/A", scoreStyle, GUILayout.Width(80));
                     var labelStyle = new GUIStyle(EditorStyles.miniLabel)
                     {
                         alignment = TextAnchor.MiddleCenter,
                         normal    = { textColor = OptifunityStyles.TextSecondary }
                     };
-                    GUILayout.Label("Health Score", labelStyle, GUILayout.Width(80));
+                    GUILayout.Label("Code rule score", labelStyle, GUILayout.Width(80));
                     GUILayout.EndVertical();
                 }
 
@@ -1376,7 +1378,7 @@ namespace Optifunity.Editor.UI
                 _statusMsg = $"Kiểm toán Assets{mode}...";
                 Repaint();
                 ReportEngine.AddIssues(IssueModule.AssetAudit,
-                    AssetAuditRunner.RunAll(myScriptsOnly: _myScriptsOnly));
+                    AssetAuditRunner.RunAll(myScriptsOnly: false));
 
                 _statusMsg = "Quét URP...";
                 Repaint();
@@ -1393,7 +1395,7 @@ namespace Optifunity.Editor.UI
                 ReportEngine.FinalizeScan();
                 _lastReport = ReportEngine.LastReport;
                 _cachedForReport = null; // force cache rebuild
-                _statusMsg = $"Full Scan hoàn tất{mode} — {_lastReport.TotalCount} issues, Health: {_lastReport.HealthScore}/100";
+                _statusMsg = $"Full Scan hoàn tất{mode} — {_lastReport.TotalCount} issues, Rule score: {_lastReport.ScoreLabel}";
             }
             finally
             {
@@ -1404,7 +1406,7 @@ namespace Optifunity.Editor.UI
 
         private void RunCodeScan()
         {
-            ReportEngine.BeginScan();
+            ReportEngine.BeginModuleScan(IssueModule.CodeAnalysis);
             var issues = CodeAnalysisRunner.RunAll(myScriptsOnly: _myScriptsOnly);
             ReportEngine.AddIssues(IssueModule.CodeAnalysis, issues);
             ReportEngine.FinalizeScan();
@@ -1418,7 +1420,7 @@ namespace Optifunity.Editor.UI
 
         private void RunAssetScan()
         {
-            ReportEngine.BeginScan();
+            ReportEngine.BeginModuleScan(IssueModule.AssetAudit);
             var issues = AssetAuditRunner.RunAll(myScriptsOnly: _myScriptsOnly);
             ReportEngine.AddIssues(IssueModule.AssetAudit, issues);
             ReportEngine.FinalizeScan();
@@ -1432,7 +1434,7 @@ namespace Optifunity.Editor.UI
 
         private void RunURPScan()
         {
-            ReportEngine.BeginScan();
+            ReportEngine.BeginModuleScan(IssueModule.URPDiagnostics);
             RunURPScanInternal();
             ReportEngine.FinalizeScan();
             _lastReport = ReportEngine.LastReport;
@@ -1465,7 +1467,7 @@ namespace Optifunity.Editor.UI
 
         private void RunSceneScan(SceneMeshRendererScanner.ScanOptions options = null)
         {
-            ReportEngine.BeginScan();
+            ReportEngine.BeginModuleScan(IssueModule.SceneRendererAudit);
             RunSceneScanInternal(options);
             ReportEngine.FinalizeScan();
             _lastReport = ReportEngine.LastReport;

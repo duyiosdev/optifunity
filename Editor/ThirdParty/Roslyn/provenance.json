@@ -1,0 +1,34 @@
+{
+  "packages": [
+    {
+      "id": "microsoft.codeanalysis.common",
+      "version": "3.8.0",
+      "source": "https://api.nuget.org/v3-flatcontainer/microsoft.codeanalysis.common/3.8.0/microsoft.codeanalysis.common.3.8.0.nupkg",
+      "sha256": "dc6f6f49cfe01c7ec55a03b248b4eeb75f9e11a7f71faeaa70f3af34f2cec78a"
+    },
+    {
+      "id": "microsoft.codeanalysis.csharp",
+      "version": "3.8.0",
+      "source": "https://api.nuget.org/v3-flatcontainer/microsoft.codeanalysis.csharp/3.8.0/microsoft.codeanalysis.csharp.3.8.0.nupkg",
+      "sha256": "8bfaf757f368fd5cea989956c691a88abbe56c90db04f6bf38d66dcd8af1b9ce"
+    },
+    {
+      "id": "system.collections.immutable",
+      "version": "5.0.0",
+      "source": "https://api.nuget.org/v3-flatcontainer/system.collections.immutable/5.0.0/system.collections.immutable.5.0.0.nupkg",
+      "sha256": "19dc122232cc334b957c4e7a55448b54d8295b407ffe809e4858fcfe14a56ccf"
+    },
+    {
+      "id": "system.reflection.metadata",
+      "version": "5.0.0",
+      "source": "https://api.nuget.org/v3-flatcontainer/system.reflection.metadata/5.0.0/system.reflection.metadata.5.0.0.nupkg",
+      "sha256": "5a8f8c8aa85c3fd750e8db851ab413c3a8696c9391170a7e4c1353ab6ca11a9f"
+    },
+    {
+      "id": "system.runtime.compilerservices.unsafe",
+      "version": "4.7.1",
+      "source": "https://api.nuget.org/v3-flatcontainer/system.runtime.compilerservices.unsafe/4.7.1/system.runtime.compilerservices.unsafe.4.7.1.nupkg",
+      "sha256": "52fca80d5f0ed286371cf1b519b039e9855dbf04c611f8d8479816d4eec82b85"
+    }
+  ]
+}

@@ -25,13 +25,6 @@ namespace Optifunity.Editor.Module4
             public string CaptureNote;
         }
 
-        // Giới hạn an toàn cho Mobile (căn cứ theo tài liệu)
-        private const int MOBILE_SETPASS_WARNING  = 500;
-        private const int MOBILE_SETPASS_CRITICAL = 1000;
-        private const int MOBILE_BATCH_WARNING    = 500;
-        private const int MOBILE_TRI_WARNING_M    = 2_000_000; // 2 triệu triangles
-        private const int PC_SETPASS_WARNING      = 2000;
-
         /// <summary>
         /// Lấy draw call statistics từ Unity Editor statistics (chỉ trong Play Mode)
         /// </summary>
@@ -53,11 +46,11 @@ namespace Optifunity.Editor.Module4
 
                 // Frame Stats từ Unity GameObject (fallback method)
                 // Unity Stats object — chỉ in Editor
-                stats.SetPassCalls       = (int)GetStat("SetPass Calls");
-                stats.DrawCalls          = (int)GetStat("Draw Calls");
-                stats.Batches            = (int)GetStat("Batches");
-                stats.TrianglesRendered  = (int)GetStat("Triangles");
-                stats.VerticesRendered   = (int)GetStat("Vertices");
+                stats.SetPassCalls       = (int)GetStat("setPassCalls");
+                stats.DrawCalls          = (int)GetStat("drawCalls");
+                stats.Batches            = (int)GetStat("batches");
+                stats.TrianglesRendered  = (int)GetStat("triangles");
+                stats.VerticesRendered   = (int)GetStat("vertices");
                 stats.IsCaptured         = true;
                 stats.CaptureNote        = $"Captured at frame {Time.frameCount}";
             }
@@ -94,121 +87,14 @@ namespace Optifunity.Editor.Module4
                 return issues;
             }
 
-            bool isMobile = PlatformConfig.IsMobile;
-            int setpassLimit = isMobile ? MOBILE_SETPASS_CRITICAL : PC_SETPASS_WARNING;
-            int setpassWarn  = isMobile ? MOBILE_SETPASS_WARNING   : PC_SETPASS_WARNING / 2;
-
-            // ─── 1. SetPass Calls (gánh nặng CPU Render Thread) ────────────────
-            if (stats.SetPassCalls > setpassLimit)
-            {
-                issues.Add(new PerformanceIssue
-                {
-                    Severity     = IssueSeverity.Error,
-                    Title        = $"CRITICAL CPU Render Thread: SetPass Calls = {stats.SetPassCalls} (giới hạn: {setpassLimit})",
-                    Description  = $"SetPass Calls vượt ngưỡng nghiêm trọng cho {(isMobile ? "Mobile" : "PC")}. " +
-                                   $"CPU phải thay đổi Shader state {stats.SetPassCalls} lần/frame, " +
-                                   $"GPU phải chờ CPU — đây là dạng CPU-Bound Render Thread.",
-                    FixSuggestion = "1. Kiểm tra SRP Batcher đang bật và tất cả Shaders tương thích CBUFFER.\n" +
-                                    "2. Hợp nhất Materials có cùng Shader về một Material.\n" +
-                                    "3. Dùng Material Property Block thay vì tạo Material instance riêng.\n" +
-                                    "4. Bật GPU Instancing cho objects giống nhau (cỏ, cây, thiên thạch)."
-                });
-            }
-            else if (stats.SetPassCalls > setpassWarn)
-            {
-                issues.Add(new PerformanceIssue
-                {
-                    Severity      = IssueSeverity.Warning,
-                    Title         = $"SetPass Calls cao: {stats.SetPassCalls}/{setpassLimit}",
-                    Description   = $"SetPass đang ở mức cảnh báo. Nên theo dõi và tối ưu hóa.",
-                    FixSuggestion = "Kiểm tra Frame Debugger: xác định Shader variant nào đang gây nhiều SetPass nhất."
-                });
-            }
-            else
-            {
-                issues.Add(new PerformanceIssue
-                {
-                    Severity      = IssueSeverity.Info,
-                    Title         = $"✓ SetPass Calls OK: {stats.SetPassCalls}/{setpassLimit}",
-                    Description   = "SetPass Calls trong ngưỡng an toàn.",
-                    FixSuggestion = "Không cần hành động."
-                });
-            }
-
-            // ─── 2. Draw Calls / Batches ───────────────────────────────────────
-            if (isMobile && stats.Batches > MOBILE_BATCH_WARNING)
-            {
-                issues.Add(new PerformanceIssue
-                {
-                    Severity      = IssueSeverity.Warning,
-                    Title         = $"Draw Call Batches cao cho Mobile: {stats.Batches}",
-                    Description   = $"Số lượng Batches = {stats.Batches}. Mục tiêu cho mobile 60fps: < 500 batches.",
-                    FixSuggestion = "1. Kết hợp Static Batching cho objects tĩnh.\n" +
-                                    "2. GPU Instancing cho objects lặp nhiều lần.\n" +
-                                    "3. Giảm số lượng Materials khác nhau trong scene."
-                });
-            }
-
-            // ─── 3. Triangle Count ─────────────────────────────────────────────
-            if (isMobile && stats.TrianglesRendered > MOBILE_TRI_WARNING_M)
-            {
-                issues.Add(new PerformanceIssue
-                {
-                    Severity      = IssueSeverity.Warning,
-                    Title         = "Triangle Count vượt ngưỡng Mobile",
-                    Description   = $"Hiển thị {stats.TrianglesRendered / 1000000f:F1}M triangles. " +
-                                    $"Tài liệu khuyến nghị {MOBILE_TRI_WARNING_M / 1000000f:F0}-{MOBILE_TRI_WARNING_M * 2 / 1000000f:F0}M triangles cho mobile 60fps.",
-                    FixSuggestion = "1. Thiết lập LOD Groups (LOD0/LOD1/LOD2) cho character và environmental objects.\n" +
-                                    "2. Dùng Occlusion Culling để loại bỏ objects bị che khuất.\n" +
-                                    "3. Giảm poly density của background assets."
-                });
-            }
-
-            // ─── 4. Bottleneck Classification ─────────────────────────────────
-            ClassifyBottleneck(issues, stats, isMobile);
-
-            return issues;
-        }
-
-        /// <summary>
-        /// Phân loại nút thắt cổ chai theo mô hình CPU-Bound / GPU-Bound từ tài liệu
-        /// </summary>
-        private static void ClassifyBottleneck(List<PerformanceIssue> issues, DrawCallStats stats, bool isMobile)
-        {
-            string bottleneckType;
-            string description;
-            string fix;
-
-            int setpassLimit = isMobile ? MOBILE_SETPASS_CRITICAL : PC_SETPASS_WARNING;
-
-            if (stats.SetPassCalls > setpassLimit)
-            {
-                bottleneckType = "CPU-Bound (Render Thread)";
-                description    = $"GPU đang chờ CPU thiết lập render state (SetPass Calls = {stats.SetPassCalls}). " +
-                                 $"Đây là dạng nghẽn phổ biến khi có nhiều Materials/Shaders khác nhau.";
-                fix            = "Tối ưu hóa SRP Batcher compatibility. Hợp nhất Materials/Shaders.";
-            }
-            else if (stats.TrianglesRendered > MOBILE_TRI_WARNING_M * 1.5f && isMobile)
-            {
-                bottleneckType = "GPU-Bound (Vertex/Fill Rate)";
-                description    = $"GPU quá tải do geometry quá nhiều hoặc Fragment Shader phức tạp. " +
-                                 $"Dấu hiệu: CPU idle nhưng GfxWait xuất hiện trong Profiler.";
-                fix            = "Giảm poly count qua LOD. Tắt Depth Priming (Mobile). Giảm Shadow Resolution.";
-            }
-            else
-            {
-                bottleneckType = "Balanced";
-                description    = "Không phát hiện nút thắt rõ ràng từ Draw Call metrics.";
-                fix            = "Tiếp tục monitoring. Dùng Frame Debugger để phân tích chi tiết hơn.";
-            }
-
             issues.Add(new PerformanceIssue
             {
-                Severity      = bottleneckType == "Balanced" ? IssueSeverity.Info : IssueSeverity.Warning,
-                Title         = "Phân loại nút thắt cổ chai",
-                Description   = $"Dựa trên chỉ số render: {bottleneckType}. {description}",
-                FixSuggestion = fix
+                RuleId = "render.counters", EvidenceLevel = "Measured Editor counters", Severity = IssueSeverity.Info,
+                Title = "Editor rendering counters (not a bottleneck diagnosis)",
+                Description = $"SetPass={stats.SetPassCalls}; DrawCalls={stats.DrawCalls}; Batches={stats.Batches}; Triangles={stats.TrianglesRendered}; Vertices={stats.VerticesRendered}. {stats.CaptureNote}",
+                FixSuggestion = "Compare CPU/GPU timing on the target device. Counts alone cannot classify CPU/GPU bound or certify a universal budget."
             });
+            return issues;
         }
 
         /// <summary>
@@ -216,19 +102,10 @@ namespace Optifunity.Editor.Module4
         /// </summary>
         private static float GetStat(string statName)
         {
-            try
-            {
-                // Unity Editor exposes stats via UnityStats internal class
-                var unityStatsType = Type.GetType("UnityEditor.UnityStats, UnityEditor");
-                if (unityStatsType == null) return 0;
-
-                var prop = unityStatsType.GetProperty(statName.Replace(" ", ""),
-                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-                if (prop != null) return Convert.ToSingle(prop.GetValue(null));
-
-                return 0;
-            }
-            catch { return 0; }
+            var property = typeof(UnityEditor.UnityStats).GetProperty(statName,
+                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+            if (property == null) throw new MissingMemberException(typeof(UnityEditor.UnityStats).FullName, statName);
+            return Convert.ToSingle(property.GetValue(null));
         }
     }
 }

@@ -1,0 +1,8 @@
+{
+    "elapsedMs": 521.4126,
+    "managedBefore": 737775616,
+    "managedAfter": 717115392,
+    "issues": 4,
+    "coverage": "Complete within selected scope: Assets C#; MyScripts=False; scanned=2; skipped=0; Packages/generated sources excluded",
+    "unity": "6000.0.58f2"
+}

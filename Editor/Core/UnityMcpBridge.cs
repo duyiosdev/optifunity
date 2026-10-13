@@ -1,10 +1,12 @@
 using System;
-using System.IO;
-using System.Net;
-using System.Text;
-using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -15,383 +17,189 @@ namespace Optifunity.Editor.Core
     [InitializeOnLoad]
     public static class UnityMcpBridge
     {
-        private static HttpListener _listener;
-        private static readonly ConcurrentQueue<Action> _mainThreadQueue = new ConcurrentQueue<Action>();
-        private const int PORT = 9090;
+        [Serializable] public class Connection
+        {
+            public string url, token, projectPath, instanceId;
+        }
+        [Serializable] private class Payload
+        {
+            public string error, status, project, projectPath, instanceId, unityVersion, scope, sceneName, path;
+            public string activeRenderPipeline, editorPlatform, buildTarget, graphicsApi;
+            public int rendererCount, estimatedTriangles, estimatedVertices, unreadableMeshes, frameIndex;
+            public float totalCpuTimeMs;
+            public long totalGcAllocBytes;
+            public List<Sample> samples;
+        }
+        [Serializable] private class Sample
+        {
+            public string name;
+            public float durationMs;
+            public long gcAllocBytes;
+        }
+        private sealed class Pending
+        {
+            public string Path;
+            public DateTime Deadline;
+            public TaskCompletionSource<string> Result = new TaskCompletionSource<string>();
+        }
+        private static readonly ConcurrentQueue<Pending> Queue = new ConcurrentQueue<Pending>();
+        private static HttpListener listener;
+        private static Connection connection;
+        private static string discoveryPath;
 
         static UnityMcpBridge()
         {
-            // Register Update to execute the queue on Main Thread
             EditorApplication.update += Update;
+            AssemblyReloadEvents.beforeAssemblyReload += Stop;
+            EditorApplication.quitting += Stop;
+            Start();
+        }
 
-            // Start HTTP Server on background thread
-            StartServer();
+        private static void Start()
+        {
+            try
+            {
+                connection = new Connection {
+                    token = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N"),
+                    projectPath = Path.GetFullPath(Path.Combine(Application.dataPath, "..")),
+                    instanceId = Guid.NewGuid().ToString("N")
+                };
+                for (int attempt = 0; attempt < 5; attempt++)
+                {
+                    var reservation = new TcpListener(IPAddress.Loopback, 0);
+                    reservation.Start();
+                    int port = ((IPEndPoint)reservation.LocalEndpoint).Port;
+                    reservation.Stop();
+                    connection.url = $"http://localhost:{port}";
+                    listener = new HttpListener();
+                    listener.Prefixes.Add(connection.url + "/");
+                    try { listener.Start(); break; }
+                    catch (HttpListenerException) { listener.Close(); listener = null; }
+                }
+                if (listener == null) throw new IOException("Cannot allocate a loopback bridge endpoint.");
+                discoveryPath = Path.Combine(connection.projectPath, "Library",
+                    $"OptifunityBridge-{System.Diagnostics.Process.GetCurrentProcess().Id}.json");
+                File.WriteAllText(discoveryPath, JsonUtility.ToJson(connection, true));
+                listener.BeginGetContext(Receive, listener);
+            }
+            catch (Exception ex) { Stop(); Debug.LogWarning("[Optifunity] Bridge unavailable: " + ex.Message); }
+        }
+
+        public static bool MatchesIdentity(Connection expected, string token, string project, string instance) =>
+            expected != null && !string.IsNullOrEmpty(expected.token) && token == expected.token &&
+            project == expected.projectPath && instance == expected.instanceId;
+
+        private static void Receive(IAsyncResult ar)
+        {
+            var server = (HttpListener)ar.AsyncState;
+            HttpListenerContext context;
+            try { context = server.EndGetContext(ar); server.BeginGetContext(Receive, server); }
+            catch (ObjectDisposedException) { return; }
+            catch (HttpListenerException) { return; }
+            _ = Handle(context);
+        }
+
+        private static async Task Handle(HttpListenerContext context)
+        {
+            try
+            {
+                var request = context.Request;
+                if (!MatchesIdentity(connection, request.Headers["X-Optifunity-Token"],
+                    Uri.UnescapeDataString(request.Headers["X-Optifunity-Project"] ?? ""), request.Headers["X-Optifunity-Instance"]))
+                { Send(context, 403, JsonUtility.ToJson(new Payload { error = "Project/instance authentication failed." })); return; }
+                string path = request.Url.AbsolutePath;
+                if (path == "/optimize")
+                { Send(context, 403, JsonUtility.ToJson(new Payload { error = "Automatic mutation disabled: usage and rollback preconditions are unverified." })); return; }
+                if (request.HttpMethod != "GET")
+                { Send(context, 405, JsonUtility.ToJson(new Payload { error = "Read-only GET endpoints." })); return; }
+                if (path != "/status" && path != "/scene" && path != "/profiler" && path != "/project-settings")
+                { Send(context, 404, JsonUtility.ToJson(new Payload { error = "Unknown endpoint." })); return; }
+                if (Queue.Count >= 64) { Send(context, 429, "{\"error\":\"Bridge queue full.\"}"); return; }
+                var pending = new Pending { Path = path, Deadline = DateTime.UtcNow.AddSeconds(4) };
+                Queue.Enqueue(pending);
+                if (await Task.WhenAny(pending.Result.Task, Task.Delay(4000)) != pending.Result.Task)
+                {
+                    pending.Result.TrySetCanceled();
+                    Send(context, 504, JsonUtility.ToJson(new Payload { error = "Request expired; no mutation performed." }));
+                    return;
+                }
+                Send(context, 200, await pending.Result.Task);
+            }
+            catch (Exception) { Send(context, 503, "{\"error\":\"Bridge stopped or request failed.\"}"); }
         }
 
         private static void Update()
         {
-            while (_mainThreadQueue.TryDequeue(out var action))
+            // Bound work per editor update so a burst of clients cannot drain an unbounded queue in one frame.
+            for (int i = 0; i < 8 && Queue.TryDequeue(out var pending); i++)
             {
-                try
-                {
-                    action();
-                }
-                catch (Exception e)
-                {
-                    Debug.LogException(e);
-                }
+                if (pending.Result.Task.IsCompleted || DateTime.UtcNow >= pending.Deadline)
+                { pending.Result.TrySetCanceled(); continue; }
+                try { pending.Result.TrySetResult(JsonUtility.ToJson(Read(pending.Path))); }
+                catch (Exception ex) { pending.Result.TrySetResult(JsonUtility.ToJson(new Payload { error = ex.Message })); }
             }
         }
 
-        private static void StartServer()
+        private static Payload Read(string path)
+        {
+            var payload = new Payload { status = "ok", project = Application.productName, projectPath = connection.projectPath, instanceId = connection.instanceId, unityVersion = Application.unityVersion };
+            if (path == "/scene")
+            {
+                var scene = SceneManager.GetActiveScene();
+                payload.scope = "Active scene; includes inactive renderers; geometry is referenced mesh counts, not rendered frame counts.";
+                payload.sceneName = scene.name; payload.path = scene.path;
+                foreach (var root in scene.GetRootGameObjects())
+                foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
+                {
+                    payload.rendererCount++;
+                    var mesh = renderer is SkinnedMeshRenderer skinned ? skinned.sharedMesh : renderer.GetComponent<MeshFilter>()?.sharedMesh;
+                    if (mesh == null) continue;
+                    payload.estimatedVertices += mesh.vertexCount;
+                    for (int sub = 0; sub < mesh.subMeshCount; sub++)
+                        if (mesh.GetTopology(sub) == MeshTopology.Triangles)
+                            payload.estimatedTriangles += (int)(mesh.GetIndexCount(sub) / 3);
+                }
+            }
+            else if (path == "/profiler")
+            {
+                var frame = FrameDataReader.ReadFrame(ProfilerHelper.GetSelectedFrame());
+                if (!frame.IsValid) return new Payload { error = frame.ErrorMessage };
+                payload.scope = "Main Thread hierarchy depth 0-10; allocation is not collection; response does not include GPU timing.";
+                payload.frameIndex = frame.FrameIndex; payload.totalCpuTimeMs = frame.TotalCpuTimeMs;
+                payload.totalGcAllocBytes = frame.TotalGCAllocBytes;
+                payload.samples = frame.TopLevelSamples.SelectMany(x => x.Flatten()).OrderByDescending(x => x.TotalTimeMs)
+                    .Take(15).Select(x => new Sample { name = x.Name, durationMs = x.TotalTimeMs, gcAllocBytes = x.GCAllocBytes }).ToList();
+            }
+            else if (path == "/project-settings")
+            {
+                payload.activeRenderPipeline = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline?.name ?? "Built-in";
+                payload.editorPlatform = Application.platform.ToString();
+                payload.buildTarget = EditorUserBuildSettings.activeBuildTarget.ToString();
+                payload.graphicsApi = string.Join(", ", PlayerSettings.GetGraphicsAPIs(EditorUserBuildSettings.activeBuildTarget));
+            }
+            return payload;
+        }
+
+        private static void Send(HttpListenerContext context, int status, string json)
         {
             try
             {
-                _listener = new HttpListener();
-                _listener.Prefixes.Add($"http://localhost:{PORT}/");
-                _listener.Start();
-                _listener.BeginGetContext(OnRequestReceived, null);
-                Debug.Log($"<color=#00FF7F>[Optifunity Bridge]</color> HTTP Server started on port {PORT}. Ready for AI commands.");
+                byte[] bytes = Encoding.UTF8.GetBytes(json);
+                context.Response.StatusCode = status;
+                context.Response.ContentType = "application/json; charset=utf-8";
+                context.Response.ContentLength64 = bytes.Length;
+                context.Response.OutputStream.Write(bytes, 0, bytes.Length);
+                context.Response.Close();
             }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[Optifunity Bridge] Failed to start server: {ex.Message}");
-            }
+            catch (HttpListenerException) { }
+            catch (ObjectDisposedException) { }
         }
 
-        private static void OnRequestReceived(IAsyncResult ar)
+        private static void Stop()
         {
-            if (_listener == null || !_listener.IsListening) return;
-
-            HttpListenerContext context = null;
-            try
-            {
-                context = _listener.EndGetContext(ar);
-                // Keep listening
-                _listener.BeginGetContext(OnRequestReceived, null);
-            }
-            catch
-            {
-                return;
-            }
-
-            if (context == null) return;
-
-            // Handle request asynchronously
-            Task.Run(async () =>
-            {
-                try
-                {
-                    await HandleRequestAsync(context);
-                }
-                catch (Exception ex)
-                {
-                    SendJsonResponse(context, 500, $"{{\"error\": \"{ex.Message}\"}}");
-                }
-            });
-        }
-
-        private static async Task HandleRequestAsync(HttpListenerContext context)
-        {
-            string rawPath = context.Request.Url.AbsolutePath.ToLower();
-            string method = context.Request.HttpMethod.ToUpper();
-
-            if (rawPath == "/status")
-            {
-                SendJsonResponse(context, 200, $"{{\"status\": \"ok\", \"project\": \"{Application.productName}\", \"unity_version\": \"{Application.unityVersion}\"}}");
-                return;
-            }
-
-            // Main Thread Endpoints:
-            if (rawPath == "/scene")
-            {
-                var tcs = new TaskCompletionSource<string>();
-                _mainThreadQueue.Enqueue(() =>
-                {
-                    try
-                    {
-                        var activeScene = SceneManager.GetActiveScene();
-                        var allRenderers = UnityEngine.Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None);
-                        var triangleCount = 0;
-                        var vertexCount = 0;
-                        var skinnedMeshCount = 0;
-                        var meshRendererCount = 0;
-                        var lodGroups = UnityEngine.Object.FindObjectsByType<LODGroup>(FindObjectsSortMode.None).Length;
-
-                        foreach (var r in allRenderers)
-                        {
-                            if (r is SkinnedMeshRenderer smr)
-                            {
-                                skinnedMeshCount++;
-                                if (smr.sharedMesh != null)
-                                {
-                                    triangleCount += smr.sharedMesh.triangles.Length / 3;
-                                    vertexCount += smr.sharedMesh.vertexCount;
-                                }
-                            }
-                            else if (r is MeshRenderer mr)
-                            {
-                                meshRendererCount++;
-                                var filter = mr.GetComponent<MeshFilter>();
-                                if (filter != null && filter.sharedMesh != null)
-                                {
-                                    triangleCount += filter.sharedMesh.triangles.Length / 3;
-                                    vertexCount += filter.sharedMesh.vertexCount;
-                                }
-                            }
-                        }
-
-                        string json = $"{{" +
-                                      $"\"sceneName\": \"{activeScene.name}\"," +
-                                      $"\"path\": \"{activeScene.path}\"," +
-                                      $"\"rendererCount\": {allRenderers.Length}," +
-                                      $"\"meshRendererCount\": {meshRendererCount}," +
-                                      $"\"skinnedMeshRendererCount\": {skinnedMeshCount}," +
-                                      $"\"lodGroups\": {lodGroups}," +
-                                      $"\"estimatedTriangles\": {triangleCount}," +
-                                      $"\"estimatedVertices\": {vertexCount}" +
-                                      $"}}";
-                        tcs.SetResult(json);
-                    }
-                    catch (Exception ex)
-                    {
-                        tcs.SetException(ex);
-                    }
-                });
-
-                string res = await tcs.Task;
-                SendJsonResponse(context, 200, res);
-                return;
-            }
-
-            if (rawPath == "/profiler")
-            {
-                var tcs = new TaskCompletionSource<string>();
-                _mainThreadQueue.Enqueue(() =>
-                {
-                    try
-                    {
-                        int selectedFrame = ProfilerHelper.GetSelectedFrame();
-                        if (selectedFrame < 0)
-                        {
-                            tcs.SetResult($"{{\"error\": \"No selected frame in Profiler. Please select a frame first.\"}}");
-                            return;
-                        }
-
-                        var snapshot = FrameDataReader.ReadFrame(selectedFrame);
-                        if (snapshot == null || !snapshot.IsValid)
-                        {
-                            string err = snapshot?.ErrorMessage ?? "Failed to read snapshot.";
-                            tcs.SetResult($"{{\"error\": \"{err}\"}}");
-                            return;
-                        }
-
-                        var allSamples = new List<ProfilerSample>();
-                        foreach (var rootSample in snapshot.TopLevelSamples)
-                        {
-                            allSamples.AddRange(rootSample.Flatten());
-                        }
-
-                        // Sort by CPU
-                        allSamples.Sort((a, b) => b.TotalTimeMs.CompareTo(a.TotalTimeMs));
-                        var cpuSamplesBuilder = new StringBuilder();
-                        for (int i = 0; i < Math.Min(15, allSamples.Count); i++)
-                        {
-                            if (i > 0) cpuSamplesBuilder.Append(",");
-                            var s = allSamples[i];
-                            cpuSamplesBuilder.Append($"{{" +
-                                                      $"\"name\": \"{EscapeJson(s.Name)}\"," +
-                                                      $"\"durationMs\": {s.TotalTimeMs:F3}," +
-                                                      $"\"calls\": {s.CallCount}," +
-                                                      $"\"gcAllocBytes\": {s.GCAllocBytes}" +
-                                                      $"}}");
-                        }
-
-                        // Sort by GC Alloc
-                        var gcSamples = new List<ProfilerSample>(allSamples);
-                        gcSamples.Sort((a, b) => b.GCAllocBytes.CompareTo(a.GCAllocBytes));
-                        var gcSamplesBuilder = new StringBuilder();
-                        var addedCount = 0;
-                        for (int i = 0; i < gcSamples.Count && addedCount < 15; i++)
-                        {
-                            var s = gcSamples[i];
-                            if (s.GCAllocBytes <= 0) continue;
-                            if (addedCount > 0) gcSamplesBuilder.Append(",");
-                            gcSamplesBuilder.Append($"{{" +
-                                                     $"\"name\": \"{EscapeJson(s.Name)}\"," +
-                                                     $"\"durationMs\": {s.TotalTimeMs:F3}," +
-                                                     $"\"calls\": {s.CallCount}," +
-                                                     $"\"gcAllocBytes\": {s.GCAllocBytes}" +
-                                                     $"}}");
-                            addedCount++;
-                        }
-
-                        string json = $"{{" +
-                                      $"\"frameIndex\": {snapshot.FrameIndex}," +
-                                      $"\"totalCpuTimeMs\": {snapshot.TotalCpuTimeMs:F2}," +
-                                      $"\"totalGcAllocBytes\": {snapshot.TotalGCAllocBytes}," +
-                                      $"\"topCpuSamples\": [{cpuSamplesBuilder}]," +
-                                      $"\"topGcAllocSamples\": [{gcSamplesBuilder}]" +
-                                      $"}}";
-                        tcs.SetResult(json);
-                    }
-                    catch (Exception ex)
-                    {
-                        tcs.SetException(ex);
-                    }
-                });
-
-                string res = await tcs.Task;
-                SendJsonResponse(context, 200, res);
-                return;
-            }
-
-            if (rawPath == "/project-settings")
-            {
-                var tcs = new TaskCompletionSource<string>();
-                _mainThreadQueue.Enqueue(() =>
-                {
-                    try
-                    {
-                        var urpAsset = UnityEngine.Rendering.GraphicsSettings.defaultRenderPipeline;
-                        string urpName = urpAsset != null ? urpAsset.name : "None";
-
-                        string json = $"{{" +
-                                      $"\"activeRenderPipeline\": \"{urpName}\"," +
-                                      $"\"unityVersion\": \"{Application.unityVersion}\"," +
-                                      $"\"platform\": \"{Application.platform}\"," +
-                                      $"\"scriptingBackend\": \"{PlayerSettings.GetScriptingBackend(BuildTargetGroup.Android)}\"," +
-                                      $"\"graphicsApi\": \"{SystemInfo.graphicsDeviceType}\"" +
-                                      $"}}";
-                        tcs.SetResult(json);
-                    }
-                    catch (Exception ex)
-                    {
-                        tcs.SetException(ex);
-                    }
-                });
-
-                string res = await tcs.Task;
-                SendJsonResponse(context, 200, res);
-                return;
-            }
-
-            if (rawPath == "/optimize" && method == "POST")
-            {
-                string body = "";
-                using (var reader = new StreamReader(context.Request.InputStream, context.Request.ContentEncoding))
-                {
-                    body = await reader.ReadToEndAsync();
-                }
-
-                var tcs = new TaskCompletionSource<string>();
-                _mainThreadQueue.Enqueue(() =>
-                {
-                    try
-                    {
-                        if (string.IsNullOrEmpty(body))
-                        {
-                            tcs.SetResult($"{{\"error\": \"Empty body. Expecting json containing assetPath.\"}}");
-                            return;
-                        }
-
-                        string assetPath = ExtractJsonField(body, "assetPath");
-                        string type = ExtractJsonField(body, "type");
-
-                        if (string.IsNullOrEmpty(assetPath))
-                        {
-                            tcs.SetResult($"{{\"error\": \"Missing assetPath in payload.\"}}");
-                            return;
-                        }
-
-                        var importer = AssetImporter.GetAtPath(assetPath);
-                        if (importer == null)
-                        {
-                            tcs.SetResult($"{{\"error\": \"Asset not found at path: {assetPath}\"}}");
-                            return;
-                        }
-
-                        bool applied = false;
-                        if (type == "texture" && importer is TextureImporter texImporter)
-                        {
-                            texImporter.mipmapEnabled = true;
-
-                            // Android ASTC 8x8 & max 1024
-                            TextureImporterPlatformSettings androidSettings = texImporter.GetPlatformTextureSettings("Android");
-                            androidSettings.overridden = true;
-                            androidSettings.format = TextureImporterFormat.ASTC_8x8;
-                            androidSettings.maxTextureSize = Math.Min(androidSettings.maxTextureSize, 1024);
-                            texImporter.SetPlatformTextureSettings(androidSettings);
-
-                            // iOS ASTC 8x8
-                            TextureImporterPlatformSettings iosSettings = texImporter.GetPlatformTextureSettings("iPhone");
-                            iosSettings.overridden = true;
-                            iosSettings.format = TextureImporterFormat.ASTC_8x8;
-                            iosSettings.maxTextureSize = Math.Min(iosSettings.maxTextureSize, 1024);
-                            texImporter.SetPlatformTextureSettings(iosSettings);
-
-                            texImporter.SaveAndReimport();
-                            applied = true;
-                        }
-                        else if (type == "mesh" && importer is ModelImporter modelImporter)
-                        {
-                            modelImporter.isReadable = false; // Disable Read/Write Enabled
-                            modelImporter.animationCompression = ModelImporterAnimationCompression.Optimal;
-                            modelImporter.SaveAndReimport();
-                            applied = true;
-                        }
-
-                        tcs.SetResult($"{{\"success\": {applied.ToString().ToLower()}, \"assetPath\": \"{assetPath}\"}}");
-                    }
-                    catch (Exception ex)
-                    {
-                        tcs.SetException(ex);
-                    }
-                });
-
-                string res = await tcs.Task;
-                SendJsonResponse(context, 200, res);
-                return;
-            }
-
-            SendJsonResponse(context, 404, $"{{\"error\": \"Endpoint {rawPath} not found.\"}}");
-        }
-
-        private static void SendJsonResponse(HttpListenerContext context, int statusCode, string json)
-        {
-            try
-            {
-                byte[] buffer = Encoding.UTF8.GetBytes(json);
-                context.Response.StatusCode = statusCode;
-                context.Response.ContentType = "application/json";
-                context.Response.ContentLength64 = buffer.Length;
-                context.Response.Headers.Add("Access-Control-Allow-Origin", "*");
-                context.Response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-                context.Response.Headers.Add("Access-Control-Allow-Headers", "Content-Type");
-                context.Response.OutputStream.Write(buffer, 0, buffer.Length);
-                context.Response.OutputStream.Close();
-            }
-            catch
-            {
-                // socket closed or error
-            }
-        }
-
-        private static string EscapeJson(string s)
-        {
-            if (string.IsNullOrEmpty(s)) return "";
-            return s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r");
-        }
-
-        private static string ExtractJsonField(string json, string fieldName)
-        {
-            string pattern = $"\"{fieldName}\"\\s*:\\s*\"([^\"]+)\"";
-            var match = System.Text.RegularExpressions.Regex.Match(json, pattern);
-            if (match.Success)
-            {
-                return match.Groups[1].Value;
-            }
-            return "";
+            listener?.Close(); listener = null;
+            while (Queue.TryDequeue(out var pending)) pending.Result.TrySetCanceled();
+            if (discoveryPath != null && File.Exists(discoveryPath)) File.Delete(discoveryPath);
         }
     }
 }

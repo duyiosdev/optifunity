@@ -31,12 +31,8 @@ namespace Optifunity.Editor.Module5
         {
             if (frameIndex < 0) return CreateInvalidReport(frameIndex, "Frame index âm.");
 
-            // Cache hit
-            if (!forceRefresh && _cache.TryGetValue(frameIndex, out var cached))
-            {
-                LastAnalysis = cached;
-                return cached;
-            }
+            // A frame index is not a capture identity. Re-read until capture identity is available.
+            ClearCache();
 
             // ─── Đọc frame data ───────────────────────────────────────────────
             FrameSnapshot snapshot;
@@ -65,7 +61,7 @@ namespace Optifunity.Editor.Module5
                     FrameIndex       = frameIndex,
                     FrameTotalMs     = snapshot.TotalCpuTimeMs,
                     AverageFrameMs   = avgMs,
-                    IsSpike          = snapshot.TotalCpuTimeMs > avgMs * 1.5f,
+                    IsSpike          = snapshot.TotalCpuTimeMs > avgMs * SpikeDetector.SpikeFactor,
                     PrimaryBottleneck = BottleneckType.Unknown,
                     PrimaryTitle      = "Lỗi phân loại",
                     PrimaryDescription = ex.Message,

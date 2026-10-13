@@ -47,7 +47,7 @@ namespace Optifunity.Editor.Module5
         private const string MARKER_GC_ALLOC          = "GC.Alloc";
 
         // GPU / Rendering
-        private const string MARKER_GFX_WAIT          = "Gfx.WaitForPresent";
+        private const string MARKER_GFX_WAIT          = "Gfx.WaitForPresentOnGfxThread";
         private const string MARKER_CAMERA_RENDER      = "Camera.Render";
         private const string MARKER_RENDER_LOOP        = "RenderLoop.Draw";
         private const string MARKER_SHADOWS            = "UpdateDepthTexture";
@@ -107,7 +107,7 @@ namespace Optifunity.Editor.Module5
                 FrameIndex     = snapshot.FrameIndex,
                 FrameTotalMs   = snapshot.TotalCpuTimeMs,
                 AverageFrameMs = averageFrameMs,
-                IsSpike           = snapshot.TotalCpuTimeMs > averageFrameMs * 1.5f,
+                IsSpike           = snapshot.TotalCpuTimeMs > averageFrameMs * SpikeDetector.SpikeFactor,
                 Severity          = CalcSeverity(snapshot.TotalCpuTimeMs, averageFrameMs),
                 CategoryBreakdown = snapshot.CategoryBreakdown
             };
@@ -125,7 +125,7 @@ namespace Optifunity.Editor.Module5
 
             findings.Add(CheckGarbageCollection(snapshot));
             findings.Add(CheckGPUBound(snapshot));
-            findings.Add(CheckCPURenderThread(snapshot));
+            // Main-thread capture cannot establish Render Thread workload.
             findings.Add(CheckPhysics(snapshot));
             findings.Add(CheckScripting(snapshot));
             findings.Add(CheckUICanvas(snapshot));
@@ -142,10 +142,10 @@ namespace Optifunity.Editor.Module5
 
             if (findings.Count == 0)
             {
-                report.PrimaryBottleneck  = BottleneckType.Balanced;
-                report.PrimaryTitle       = "Frame bình thường — Không phát hiện bottleneck rõ ràng";
-                report.PrimaryDescription = $"Frame {snapshot.TotalCpuTimeMs:F2}ms, gần với target 60fps ({TARGET_60FPS_MS:F1}ms).";
-                report.PrimaryConfidence  = 1.0f;
+                report.PrimaryBottleneck  = BottleneckType.Unknown;
+                report.PrimaryTitle       = "Không đủ bằng chứng xác định bottleneck";
+                report.PrimaryDescription = $"Main-thread frame: {snapshot.TotalCpuTimeMs:F2}ms. Cần thêm dữ liệu GPU/thread và target FPS để kết luận.";
+                report.PrimaryConfidence  = 0f;
             }
             else
             {
@@ -153,7 +153,7 @@ namespace Optifunity.Editor.Module5
                 report.PrimaryBottleneck  = primary.Type;
                 report.PrimaryConfidence  = primary.Confidence;
                 report.PrimaryTitle       = GetBottleneckTitle(primary.Type);
-                report.PrimaryDescription = primary.Evidence;
+                report.PrimaryDescription = "Hypothesis from Main Thread capture; verify on target device. " + primary.Evidence;
 
                 // Contributing factors (trừ primary)
                 for (int i = 1; i < findings.Count; i++)
@@ -184,98 +184,31 @@ namespace Optifunity.Editor.Module5
         // ─── Case 1: Garbage Collection ──────────────────────────────────────
         private static BottleneckFinding CheckGarbageCollection(FrameSnapshot s)
         {
-            bool hasCollect  = s.HasMarker(MARKER_GC_COLLECT);
-            bool hasAllocMarker = s.HasMarker(MARKER_GC_ALLOC);
-            long gcBytes     = s.TotalGCAllocBytes;
-            float gcTime     = s.SumTime(MARKER_GC_COLLECT);
-
-            if (!hasCollect && gcBytes < GC_ALLOC_HIGH_BYTES && !hasAllocMarker)
-                return null;
-
-            float confidence = 0f;
-            string evidence;
-
-            if (hasCollect)
-            {
-                confidence += 0.7f;
-                // GC.Collect time thường được tính vào nhiều sample — override với wall time
-                if (gcTime < 0.1f) gcTime = s.TotalCpuTimeMs * 0.3f; // estimate
-            }
-
-            if (gcBytes >= GC_ALLOC_CRITICAL_BYTES)
-            {
-                confidence += 0.3f;
-                evidence = $"GC.Collect kích hoạt! GC Alloc frame này: {FormatBytes(gcBytes)}. " +
-                           $"GC.Collect time ≈ {gcTime:F2}ms. " +
-                           $"Mỗi {gcBytes / 1024f:F0}KB/frame = {gcBytes * 60 / 1048576f:F0}MB/s rác bộ nhớ.";
-            }
-            else if (gcBytes >= GC_ALLOC_HIGH_BYTES)
-            {
-                confidence += 0.2f;
-                evidence = $"GC Alloc cao: {FormatBytes(gcBytes)}/frame. " +
-                           (hasCollect ? "GC.Collect đã kích hoạt trong frame này." : "Tích lũy sẽ trigger GC.Collect sớm.");
-            }
-            else
-            {
-                evidence = $"GC.Collect marker phát hiện (alloc nhỏ: {FormatBytes(gcBytes)}).";
-                confidence = 0.3f;
-            }
-
-            // Top GC allocators
-            var topAlloc = s.GetTopByGCAlloc(5);
-            if (topAlloc.Count > 0)
-            {
-                evidence += "\nTop allocators: " + string.Join(", ",
-                    topAlloc.Take(3).Select(a => $"{a.Name}({FormatBytes(a.GCAllocBytes)})"));
-            }
-
+            bool hasCollect = s.HasMarker(MARKER_GC_COLLECT);
+            if (!hasCollect) return null;
+            float gcTime = s.SumTime(MARKER_GC_COLLECT);
             return new BottleneckFinding
             {
-                Type       = BottleneckType.GarbageCollection,
-                Confidence = Mathf.Clamp01(confidence),
-                Evidence   = evidence,
-                TimeMs     = gcTime,
-                Fix        = "Object Pooling, tránh new() trong Update(), dùng StringBuilder"
+                Type = BottleneckType.GarbageCollection,
+                Confidence = 0.7f,
+                Evidence = $"GC.Collect measured: {gcTime:F2}ms; allocation: {FormatBytes(s.TotalGCAllocBytes)}. Allocation alone does not prove collection.",
+                TimeMs = gcTime,
+                Fix = "Inspect allocation call stacks and verify collection time on the target device."
             };
         }
 
-        // ─── Case 2: GPU-Bound ────────────────────────────────────────────────
         private static BottleneckFinding CheckGPUBound(FrameSnapshot s)
         {
-            float gfxWait    = s.SumTime(MARKER_GFX_WAIT);
-            float frameTotal = s.TotalCpuTimeMs;
-
-            if (frameTotal <= 0 || gfxWait < 1.0f) return null;
-
-            float pct        = gfxWait / frameTotal;
-            float confidence = 0f;
-            string evidence;
-
-            if (pct >= GFX_WAIT_CRITICAL_PCT)
-            {
-                confidence = 0.90f;
-                evidence = $"Gfx.WaitForPresent = {gfxWait:F2}ms ({pct * 100:F0}% frame). " +
-                           $"CPU đang nằm chờ GPU hoàn thành draw call. GPU-bound nghiêm trọng!";
-            }
-            else if (pct >= GFX_WAIT_THRESHOLD_PCT)
-            {
-                confidence = 0.65f;
-                evidence = $"Gfx.WaitForPresent = {gfxWait:F2}ms ({pct * 100:F0}% frame). " +
-                           $"GPU đang là bottleneck. Camera.Render = {s.SumTime(MARKER_CAMERA_RENDER):F2}ms.";
-            }
-            else
-            {
-                confidence = 0.20f;
-                evidence = $"Gfx.WaitForPresent thấp ({gfxWait:F2}ms, {pct * 100:F0}%) — GPU không phải bottleneck chính.";
-            }
-
+            // Present waits include pacing and synchronization; only measured GPU time supports this hypothesis.
+            if (s.TotalGpuTimeMs <= TARGET_60FPS_MS || s.TotalCpuTimeMs <= 0 ||
+                s.TotalGpuTimeMs < s.TotalCpuTimeMs * 0.8f) return null;
             return new BottleneckFinding
             {
-                Type       = BottleneckType.GPUBound,
-                Confidence = confidence,
-                Evidence   = evidence,
-                TimeMs     = gfxWait,
-                Fix        = "Giảm overdraw, nén texture ASTC, tắt SSAO/HDR trên mobile, reduce shadow cascade"
+                Type = BottleneckType.GPUBound,
+                Confidence = 0.6f,
+                Evidence = $"Measured GPU frame: {s.TotalGpuTimeMs:F2}ms. Suspected GPU pressure; verify pacing and device capture.",
+                TimeMs = s.TotalGpuTimeMs,
+                Fix = "Compare CPU/GPU timings on the target device before changing rendering settings."
             };
         }
 
@@ -330,7 +263,7 @@ namespace Optifunity.Editor.Module5
             float physicsProcess = s.SumTime(MARKER_PHYSICS_PROCESS);
             float physicsFetch   = s.SumTime(MARKER_PHYSICS_FETCH);
             float physicsFixed   = s.SumTime(MARKER_PHYSICS_UPDATE);
-            float totalPhysics   = physicsProcess + physicsFetch + physicsFixed;
+            float totalPhysics   = Math.Max(physicsFixed, physicsProcess + physicsFetch);
 
             if (totalPhysics < 1.0f) return null;
 
@@ -675,7 +608,7 @@ namespace Optifunity.Editor.Module5
 
             float gfxWait = s.SumTime(MARKER_GFX_WAIT);
             if (gfxWait > 1f)
-                report.KeyMetrics.Add($"Gfx.WaitForPresent: {gfxWait:F2}ms ({gfxWait/s.TotalCpuTimeMs*100:F0}%)");
+                report.KeyMetrics.Add($"Present wait (pacing/synchronization possible): {gfxWait:F2}ms ({gfxWait/s.TotalCpuTimeMs*100:F0}%)");
 
             float cameraRender = s.SumTime(MARKER_CAMERA_RENDER);
             if (cameraRender > 1f)
@@ -791,7 +724,7 @@ namespace Optifunity.Editor.Module5
         private static string GetBottleneckTitle(BottleneckType type) => type switch
         {
             BottleneckType.GarbageCollection => "Garbage Collection — GC.Collect kích hoạt",
-            BottleneckType.GPUBound          => "GPU-Bound — CPU chờ GPU (Gfx.WaitForPresent cao)",
+            BottleneckType.GPUBound          => "Suspected GPU pressure — measured GPU timing",
             BottleneckType.CPURenderThread   => "CPU Render Thread — Camera.Render / SetPass Calls quá tải",
             BottleneckType.Physics           => "Physics — Physics.Processing chiếm quá nhiều thời gian",
             BottleneckType.Scripting         => "Scripting — Scripts (BehaviourUpdate) chiếm quá nhiều CPU",

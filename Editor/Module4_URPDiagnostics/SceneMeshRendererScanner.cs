@@ -9,6 +9,7 @@ namespace Optifunity.Editor.Module4
 {
     public static class SceneMeshRendererScanner
     {
+        public static string LastCoverage { get; private set; } = "Not scanned";
         [Serializable]
         public class ScanOptions
         {
@@ -45,6 +46,8 @@ namespace Optifunity.Editor.Module4
             var issues = new List<PerformanceIssue>();
             var renderers = EnumerateOpenSceneRenderers(options.IncludeInactive, options.IncludeSkinnedMeshRenderers).ToList();
 
+            LastCoverage = $"Loaded scenes={SceneManager.sceneCount}; candidate renderers={renderers.Count}; options={JsonUtility.ToJson(options)}; unopened scenes/prefabs excluded";
+
             if (renderers.Count == 0)
             {
                 issues.Add(new PerformanceIssue
@@ -53,26 +56,6 @@ namespace Optifunity.Editor.Module4
                     Title = "Open Scene Renderer Scan",
                     Description = "Không tìm thấy renderer nào trong các scene đang mở theo cấu hình hiện tại.",
                     FixSuggestion = "Mở scene gameplay hoặc bật thêm tùy chọn scan (ví dụ Skinned Mesh Renderer) rồi scan lại."
-                });
-                return issues;
-            }
-
-            bool hasAnyActiveFilter =
-                options.EnableMaterialPropertyBlockFilter ||
-                options.EnableGpuInstancingFilter ||
-                options.EnableStaticBatchingFilter ||
-                options.EnableLodGroupFilter ||
-                options.EnableXrMotionFilter ||
-                options.EnableDotsInstancingFilter;
-
-            if (!hasAnyActiveFilter)
-            {
-                issues.Add(new PerformanceIssue
-                {
-                    Severity = IssueSeverity.Info,
-                    Title = "Scene filter chưa được chọn",
-                    Description = "Hãy tick ít nhất một filter tiêu chí (MPB/Instancing/Static/LOD/XR/DOTS) để nhận danh sách kết quả lọc.",
-                    FixSuggestion = "Checkbox 'Scan Skinned Mesh Renderer' chỉ mở rộng phạm vi quét, không phải điều kiện lọc kết quả."
                 });
                 return issues;
             }
@@ -120,7 +103,7 @@ namespace Optifunity.Editor.Module4
                     {
                         issues.Add(new PerformanceIssue
                         {
-                            Severity = hasMpb ? IssueSeverity.Info : IssueSeverity.Warning,
+                            Severity = IssueSeverity.Info,
                             Title = hasMpb ? "MaterialPropertyBlock = On" : "MaterialPropertyBlock = Off",
                             AssetPath = scenePath,
                             CodeLocation = BuildSceneObjectToken(renderer),
@@ -145,7 +128,7 @@ namespace Optifunity.Editor.Module4
                     {
                         issues.Add(new PerformanceIssue
                         {
-                            Severity = hasInstancingMaterial ? IssueSeverity.Info : IssueSeverity.Warning,
+                            Severity = IssueSeverity.Info,
                             Title = hasInstancingMaterial ? "GPU Instancing = On" : "GPU Instancing = Off",
                             AssetPath = scenePath,
                             CodeLocation = BuildSceneObjectToken(renderer),
@@ -158,7 +141,7 @@ namespace Optifunity.Editor.Module4
                     {
                         issues.Add(new PerformanceIssue
                         {
-                            Severity = isStaticBatched ? IssueSeverity.Info : IssueSeverity.Warning,
+                            Severity = IssueSeverity.Info,
                             Title = isStaticBatched ? "Static Batching = On" : "Static Batching = Off",
                             AssetPath = scenePath,
                             CodeLocation = BuildSceneObjectToken(renderer),
@@ -171,7 +154,7 @@ namespace Optifunity.Editor.Module4
                     {
                         issues.Add(new PerformanceIssue
                         {
-                            Severity = inLodGroup ? IssueSeverity.Info : IssueSeverity.Warning,
+                            Severity = IssueSeverity.Info,
                             Title = inLodGroup ? "LODGroup = On" : "LODGroup = Off",
                             AssetPath = scenePath,
                             CodeLocation = BuildSceneObjectToken(renderer),
@@ -185,7 +168,7 @@ namespace Optifunity.Editor.Module4
                         string xrLabel = xrState == XrMotionState.Enabled ? "On" : xrState == XrMotionState.Disabled ? "Off" : "Unknown";
                         issues.Add(new PerformanceIssue
                         {
-                            Severity = xrState == XrMotionState.Enabled ? IssueSeverity.Info : IssueSeverity.Warning,
+                            Severity = IssueSeverity.Info,
                             Title = $"XR Motion = {xrLabel}",
                             AssetPath = scenePath,
                             CodeLocation = BuildSceneObjectToken(renderer),
@@ -198,7 +181,7 @@ namespace Optifunity.Editor.Module4
                     {
                         issues.Add(new PerformanceIssue
                         {
-                            Severity = supportsDotsInstancing ? IssueSeverity.Info : IssueSeverity.Warning,
+                            Severity = IssueSeverity.Info,
                             Title = supportsDotsInstancing ? "DOTS Instancing Support = On" : "DOTS Instancing Support = Off",
                             AssetPath = scenePath,
                             CodeLocation = BuildSceneObjectToken(renderer),
@@ -241,7 +224,13 @@ namespace Optifunity.Editor.Module4
             {
                 var block = new MaterialPropertyBlock();
                 renderer.GetPropertyBlock(block);
-                return !block.isEmpty;
+                if (!block.isEmpty) return true;
+                for (int i = 0; i < renderer.sharedMaterials.Length; i++)
+                {
+                    block.Clear(); renderer.GetPropertyBlock(block, i);
+                    if (!block.isEmpty) return true;
+                }
+                return false;
             }
             catch
             {

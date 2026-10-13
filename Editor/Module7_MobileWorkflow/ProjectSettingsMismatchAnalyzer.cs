@@ -20,7 +20,7 @@ namespace Optifunity.Editor.Module7
             var defaultRp = GraphicsSettings.defaultRenderPipeline;
             var qualityRp = QualitySettings.renderPipeline;
 
-            if (defaultRp == null)
+            if (defaultRp == null && qualityRp == null)
             {
                 issues.Add(new PerformanceIssue
                 {
@@ -32,18 +32,18 @@ namespace Optifunity.Editor.Module7
                 return issues;
             }
 
-            if (defaultRp != qualityRp)
+            if (qualityRp != null && defaultRp != qualityRp)
             {
                 issues.Add(new PerformanceIssue
                 {
-                    Severity = IssueSeverity.Warning,
+                    Severity = IssueSeverity.Info,
                     Title = "Graphics/Quality Render Pipeline mismatch",
                     Description = "GraphicsSettings.defaultRenderPipeline và QualitySettings.renderPipeline đang khác nhau.",
                     FixSuggestion = "Đồng bộ Scriptable Render Pipeline Asset giữa Graphics và Quality để tránh hành vi không nhất quán."
                 });
             }
 
-            if (defaultRp is not UniversalRenderPipelineAsset)
+            if (GraphicsSettings.currentRenderPipeline is not UniversalRenderPipelineAsset)
             {
                 issues.Add(new PerformanceIssue
                 {

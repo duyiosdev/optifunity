@@ -6,8 +6,7 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
-const UNITY_PORT = 9090;
-const UNITY_URL = `http://localhost:${UNITY_PORT}`;
+import { readFileSync } from "node:fs";
 
 // Khởi tạo MCP Server
 const server = new Server(
@@ -58,7 +57,7 @@ const TOOLS = [
   },
   {
     name: "unity_apply_asset_optimization",
-    description: "Tự động thiết lập cấu hình tối ưu hóa tài nguyên (nén ASTC 8x8, tắt Read/Write) cho Mesh hoặc Texture.",
+    description: "Disabled: automatic asset mutation requires verified usage and rollback conditions.",
     inputSchema: {
       type: "object",
       properties: {
@@ -127,11 +126,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 // Hàm gọi tới HTTP Server trong Unity Editor
 async function callUnity(path, method = "GET", body = null) {
-  const url = `${UNITY_URL}${path}`;
+  if (!process.env.OPTIFUNITY_CONNECTION) throw new Error("Set OPTIFUNITY_CONNECTION to the selected Editor Library/OptifunityBridge-<pid>.json file.");
+  const connection = JSON.parse(readFileSync(process.env.OPTIFUNITY_CONNECTION, "utf8"));
+  if (!connection || ["url", "token", "projectPath", "instanceId"].some(key => typeof connection[key] !== "string" || !connection[key]))
+    throw new Error("Required connection fields must be nonempty strings.");
+  if (!/^http:\/\/localhost:\d+$/.test(connection.url) || !connection.token || !connection.projectPath || !connection.instanceId)
+    throw new Error("Invalid local Editor connection descriptor.");
+  const url = connection.url + path;
   const options = {
     method,
+    signal: AbortSignal.timeout(5000),
     headers: {
       "Content-Type": "application/json",
+      "X-Optifunity-Token": connection.token,
+      "X-Optifunity-Project": encodeURIComponent(connection.projectPath),
+      "X-Optifunity-Instance": connection.instanceId,
     },
   };
 
@@ -145,9 +154,11 @@ async function callUnity(path, method = "GET", body = null) {
       const errText = await response.text();
       throw new Error(`HTTP ${response.status}: ${errText}`);
     }
-    return await response.json();
+    const result = await response.json();
+    if (result.error) throw new Error(result.error);
+    return result;
   } catch (err) {
-    throw new Error(`Không thể kết nối tới Unity Editor Bridge tại ${url}. Hãy chắc chắn rằng Unity đang mở, đã biên dịch UnityMcpBridge.cs và cổng ${UNITY_PORT} không bị chặn. Chi tiết: ${err.message}`);
+    throw new Error(`Không thể kết nối tới Unity Editor Bridge tại ${url}. Hãy chắc chắn rằng Unity đang mở, đã biên dịch UnityMcpBridge.cs và cổng đã chọn không bị chặn. Chi tiết: ${err.message}`);
   }
 }
 

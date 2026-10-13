@@ -68,6 +68,7 @@ namespace Optifunity.Editor.Module5.UI
         // ─── Lifecycle ─────────────────────────────────────────────────────────
         private void OnEnable()
         {
+            SpikeDetector.OnCaptureReset += OnCaptureReset;
             SpikeDetector.OnFrameSelected   += OnProfilerFrameSelected;
             SpikeDetector.OnTimelineUpdated += OnTimelineUpdated;
 
@@ -90,6 +91,7 @@ namespace Optifunity.Editor.Module5.UI
 
         private void OnDisable()
         {
+            SpikeDetector.OnCaptureReset -= OnCaptureReset;
             SpikeDetector.OnFrameSelected   -= OnProfilerFrameSelected;
             SpikeDetector.OnTimelineUpdated -= OnTimelineUpdated;
 
@@ -99,6 +101,13 @@ namespace Optifunity.Editor.Module5.UI
             }
             _cardTextureCache.Clear();
             _samplePathCache.Clear();
+        }
+
+        private void OnCaptureReset()
+        {
+            _currentReport = null;
+            _samplePathCache.Clear();
+            Repaint();
         }
 
         private void OnProfilerFrameSelected(int frameIndex, bool isSpike)
@@ -151,6 +160,7 @@ namespace Optifunity.Editor.Module5.UI
                 OptifunityStyles.BgDark);
 
             DrawHeader();
+            EditorGUILayout.HelpBox("Scope: Main Thread hierarchy, depth 0–10. GPU timing may be unavailable; rankings are hypotheses, not calibrated probabilities.", MessageType.Info);
             DrawTimeline();
             OptifunityStyles.DrawSeparator();
             DrawAnalysisPanel();
@@ -539,7 +549,7 @@ namespace Optifunity.Editor.Module5.UI
                     DrawDiagnosisMetric("Workload", workloadSummary, 220);
                     DrawDiagnosisMetric("Spike Ratio", $"{ratio:F2}x avg", 120);
                     DrawDiagnosisMetric("Problem", r.IsSpike ? $"Yes ({r.Severity})" : "No", 120);
-                    DrawDiagnosisMetric("Confidence", $"{r.PrimaryConfidence * 100:F0}%", 110);
+                    DrawDiagnosisMetric("Evidence", "Heuristic", 110);
                     GUILayout.FlexibleSpace();
                 }
 
@@ -700,7 +710,7 @@ namespace Optifunity.Editor.Module5.UI
                         new GUIStyle(OptifunityStyles.StyleLabelError) { fontSize = 9 },
                         GUILayout.Width(140));
                     OptifunityStyles.DrawBadge(
-                        $"Confidence: {r.PrimaryConfidence * 100:F0}%", primaryColor);
+                        "Heuristic; uncalibrated", primaryColor);
                 }
 
                 GUILayout.Label(r.PrimaryTitle,
@@ -756,7 +766,7 @@ namespace Optifunity.Editor.Module5.UI
                                 { fontSize = 11, normal = { textColor = cfColor } },
                                 GUILayout.Width(200));
                             OptifunityStyles.DrawBadge(
-                                $"{cf.Confidence * 100:F0}% | {cf.TimeMs:F2}ms", cfColor);
+                                $"Hypothesis | {cf.TimeMs:F2}ms", cfColor);
                         }
                         GUILayout.Label(cf.Evidence, OptifunityStyles.StyleIssueDesc);
                     }, cfColor * 0.15f);

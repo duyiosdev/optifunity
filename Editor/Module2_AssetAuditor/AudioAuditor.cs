@@ -11,9 +11,12 @@ namespace Optifunity.Editor.Module2
     /// </summary>
     public static class AudioAuditor
     {
+        public static string LastCoverage { get; private set; } = "Not scanned";
         public static List<PerformanceIssue> Audit(bool myScriptsOnly = false)
         {
             var issues = new List<PerformanceIssue>();
+            int inspected = 0, skipped = 0;
+            LastCoverage = "Incomplete (scan in progress or failed)";
             float durationThreshold = PlatformConfig.AudioStreamingThresholdSeconds;
 
             string[] guids = AssetDatabase.FindAssets("t:AudioClip");
@@ -22,24 +25,25 @@ namespace Optifunity.Editor.Module2
             {
                 string path = AssetDatabase.GUIDToAssetPath(guid);
                 if (path.StartsWith("Packages/")) continue;
-                if (myScriptsOnly && !UI.DashboardWindow.IsUserCodePath(path)) continue;
+                if (myScriptsOnly && !UI.DashboardWindow.IsUserCodePath(path)) { skipped++; continue; }
 
                 var importer = AssetImporter.GetAtPath(path) as AudioImporter;
-                if (importer == null) continue;
+                if (importer == null) { skipped++; continue; }
 
                 var clip = AssetDatabase.LoadAssetAtPath<AudioClip>(path);
-                if (clip == null) continue;
+                if (clip == null) { skipped++; continue; }
 
                 float  duration   = clip.length;
                 string clipName   = System.IO.Path.GetFileName(path);
-                var    sampleSettings = importer.defaultSampleSettings;
+                var sampleSettings = EffectiveSampleSettings(importer);
 
+                inspected++;
                 // ─── 1. Decompress on Load cho file dài ──────────────────────
                 if (duration > durationThreshold &&
                     sampleSettings.loadType == AudioClipLoadType.DecompressOnLoad)
                 {
                     // Ước tính bộ nhớ PCM raw (stereo 44100Hz float32)
-                    float estimatedRawMB = duration * 44100f * 2f * 4f / 1_048_576f;
+                    float estimatedRawMB = duration * clip.frequency * clip.channels * 4f / 1_048_576f;
 
                     issues.Add(new PerformanceIssue
                     {
@@ -50,10 +54,10 @@ namespace Optifunity.Editor.Module2
                                         $"Một file MP3 5MB phình thành 40-50MB bộ nhớ.",
                         AssetPath     = path,
                         FixSuggestion = "Đổi Load Type = Streaming trong AudioImporter → Default nếu là nhạc nền/ambient dài. " +
-                                        "Streaming chỉ giữ ~200KB buffer, chi phí CPU decoding không đáng kể.",
+                                        "Streaming có overhead, I/O và CPU decode; resident memory không giới hạn ở kích thước buffer. Cần đo số voice và thiết bị.",
                         CanAutoFix    = true,
                         AutoFixLabel  = "Set LoadType = Streaming",
-                        AutoFixAction = () => AutoFixStreaming(path)
+
                     });
                 }
 
@@ -70,7 +74,7 @@ namespace Optifunity.Editor.Module2
                         FixSuggestion = "Đổi Load Type = Compressed In Memory (hoặc Decompress on Load nếu file rất ngắn <0.5s).",
                         CanAutoFix    = true,
                         AutoFixLabel  = "Set LoadType = CompressedInMemory",
-                        AutoFixAction = () => AutoFixCompressedInMemory(path)
+
                     });
                 }
 
@@ -83,10 +87,10 @@ namespace Optifunity.Editor.Module2
                         Title         = $"AudioClip '{clipName}' dùng PCM (không nén) — lãng phí bộ nhớ",
                         Description   = "PCM không nén tốn rất nhiều bộ nhớ. Trên mobile nên dùng Vorbis (iOS/Android).",
                         AssetPath     = path,
-                        FixSuggestion = "Đổi Compression Format = Vorbis với Quality ~70% — giảm 8-10x dung lượng mà ít mất chất lượng.",
+                        FixSuggestion = "So sánh các format được platform hỗ trợ; đo chất lượng, dung lượng và CPU decode trước khi chọn.",
                         CanAutoFix    = true,
                         AutoFixLabel  = "Set Compression = Vorbis 70%",
-                        AutoFixAction = () => AutoFixVorbis(path)
+
                     });
                 }
 
@@ -102,53 +106,22 @@ namespace Optifunity.Editor.Module2
                         FixSuggestion = "Bật Force To Mono trong AudioImporter nếu clip là SFX không cần không gian âm thanh 3D.",
                         CanAutoFix    = true,
                         AutoFixLabel  = "Enable Force To Mono",
-                        AutoFixAction = () => AutoFixForceMono(path)
+
                     });
                 }
 
                 Resources.UnloadAsset(clip);
             }
 
+            LastCoverage = $"AudioClip: inspected={inspected}, skipped={skipped}; top-level imported assets under Assets only; package/generated/sub-asset coverage excluded";
             return issues;
         }
 
-        private static void AutoFixStreaming(string path)
+        private static AudioImporterSampleSettings EffectiveSampleSettings(AudioImporter importer)
         {
-            var importer = AssetImporter.GetAtPath(path) as AudioImporter;
-            if (importer == null) return;
-            var settings = importer.defaultSampleSettings;
-            settings.loadType = AudioClipLoadType.Streaming;
-            importer.defaultSampleSettings = settings;
-            importer.SaveAndReimport();
-        }
-
-        private static void AutoFixCompressedInMemory(string path)
-        {
-            var importer = AssetImporter.GetAtPath(path) as AudioImporter;
-            if (importer == null) return;
-            var settings = importer.defaultSampleSettings;
-            settings.loadType = AudioClipLoadType.CompressedInMemory;
-            importer.defaultSampleSettings = settings;
-            importer.SaveAndReimport();
-        }
-
-        private static void AutoFixVorbis(string path)
-        {
-            var importer = AssetImporter.GetAtPath(path) as AudioImporter;
-            if (importer == null) return;
-            var settings = importer.defaultSampleSettings;
-            settings.compressionFormat = AudioCompressionFormat.Vorbis;
-            settings.quality = 0.7f;
-            importer.defaultSampleSettings = settings;
-            importer.SaveAndReimport();
-        }
-
-        private static void AutoFixForceMono(string path)
-        {
-            var importer = AssetImporter.GetAtPath(path) as AudioImporter;
-            if (importer == null) return;
-            importer.forceToMono = true;
-            importer.SaveAndReimport();
+            string target = PlatformConfig.ActivePlatform == Runtime.TargetPlatformType.Android ? "Android" :
+                PlatformConfig.ActivePlatform == Runtime.TargetPlatformType.iOS ? "iPhone" : "Standalone";
+            return importer.ContainsSampleSettingsOverride(target) ? importer.GetOverrideSampleSettings(target) : importer.defaultSampleSettings;
         }
     }
 }

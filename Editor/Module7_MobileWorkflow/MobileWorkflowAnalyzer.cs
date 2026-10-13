@@ -30,8 +30,8 @@ namespace Optifunity.Editor.Module7
             issues.Add(new PerformanceIssue
             {
                 Severity = IssueSeverity.Info,
-                Title = "[Pipeline Architecture] Unity renderer paths are parallel",
-                Description = "Module 7 đang đánh giá GRD, SRP Batcher, GPU Instancing, Static Batching, Dynamic Batching và Fallback như các hệ thống tối ưu độc lập cho từng renderer.",
+                Title = "[Pipeline Architecture] Conditional rendering strategies",
+                Description = "Các đường render có điều kiện tương thích và ưu tiên theo Unity/URP. Các lựa chọn trong checklist không độc lập hoàn toàn và không mặc định cộng dồn trên cùng renderer.",
                 FixSuggestion = "Mở tab Render Pipeline để xem match/mismatch theo từng pipeline và locate setting tương ứng."
             });
 
@@ -39,6 +39,11 @@ namespace Optifunity.Editor.Module7
             {
                 foreach (var check in pipeline.Checks)
                 {
+                    if (check.Status == MobileNodeStatus.NotApplicable || check.Status == MobileNodeStatus.Unsupported)
+                    {
+                        issues.Add(new PerformanceIssue { Severity = IssueSeverity.Info, Title = $"[{pipeline.Title}] {check.Status}", Description = "The selected pipeline or adapter does not support this check.", FixSuggestion = "Select a supported URP configuration before applying this checklist." });
+                        break;
+                    }
                     if (check.Status == MobileNodeStatus.Mismatched)
                     {
                         issues.Add(new PerformanceIssue

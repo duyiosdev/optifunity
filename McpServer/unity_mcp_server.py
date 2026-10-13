@@ -1,7 +1,10 @@
+import os
+import re
 import sys
 import json
 import urllib.request
 import urllib.error
+import urllib.parse
 
 # Thiết lập stdout ghi với UTF-8 và tự động đẩy dữ liệu đi
 sys.stdout.reconfigure(encoding='utf-8')
@@ -11,16 +14,30 @@ def log(msg):
     sys.stderr.write(f"[UnityMCP] {msg}\n")
     sys.stderr.flush()
 
-UNITY_PORT = 9090
-UNITY_URL = f"http://localhost:{UNITY_PORT}"
+
 
 def call_unity(path, method="GET", body=None):
-    url = f"{UNITY_URL}{path}"
+    descriptor = os.environ.get("OPTIFUNITY_CONNECTION")
+    if not descriptor:
+        return {"error": "Set OPTIFUNITY_CONNECTION to the selected Editor connection JSON in Library."}
+    try:
+        with open(descriptor, encoding="utf-8-sig") as source:
+            connection = json.load(source)
+        if not isinstance(connection, dict) or any(not isinstance(connection.get(key), str) or not connection[key] for key in ("url", "token", "projectPath", "instanceId")):
+            raise ValueError("Required connection fields must be nonempty strings")
+        if not re.fullmatch(r"http://localhost:[0-9]+", connection["url"]):
+            raise ValueError("Expected a local Editor endpoint")
+        headers = {"X-Optifunity-Token": connection["token"],
+                   "X-Optifunity-Project": urllib.parse.quote(connection["projectPath"], safe=""),
+                   "X-Optifunity-Instance": connection["instanceId"]}
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        return {"error": f"Invalid connection descriptor: {error}"}
+    url = connection["url"] + path
     data = None
     if body:
         data = json.dumps(body).encode("utf-8")
     
-    req = urllib.request.Request(url, data=data, method=method)
+    req = urllib.request.Request(url, data=data, method=method, headers=headers)
     req.add_header("Content-Type", "application/json")
     
     try:
@@ -69,7 +86,7 @@ TOOLS = [
     },
     {
         "name": "unity_apply_asset_optimization",
-        "description": "Tự động thiết lập cấu hình tối ưu hóa tài nguyên (nén ASTC 8x8, tắt Read/Write) cho Mesh hoặc Texture.",
+        "description": "Disabled: automatic asset mutation requires verified usage and rollback conditions.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -130,22 +147,22 @@ def handle_request(req):
         if tool_name == "unity_get_status":
             res = call_unity("/status")
             result_text = json.dumps(res, indent=2)
-            if "error" in res:
+            if res.get("error"):
                 is_error = True
         elif tool_name == "unity_get_scene_summary":
             res = call_unity("/scene")
             result_text = json.dumps(res, indent=2)
-            if "error" in res:
+            if res.get("error"):
                 is_error = True
         elif tool_name == "unity_get_profiler_frame":
             res = call_unity("/profiler")
             result_text = json.dumps(res, indent=2)
-            if "error" in res:
+            if res.get("error"):
                 is_error = True
         elif tool_name == "unity_get_project_settings":
             res = call_unity("/project-settings")
             result_text = json.dumps(res, indent=2)
-            if "error" in res:
+            if res.get("error"):
                 is_error = True
         elif tool_name == "unity_apply_asset_optimization":
             res = call_unity("/optimize", method="POST", body={
@@ -153,7 +170,7 @@ def handle_request(req):
                 "type": tool_args.get("type")
             })
             result_text = json.dumps(res, indent=2)
-            if "error" in res:
+            if res.get("error"):
                 is_error = True
         else:
             return {

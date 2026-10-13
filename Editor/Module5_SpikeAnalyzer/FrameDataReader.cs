@@ -190,7 +190,7 @@ namespace Optifunity.Editor.Module5
                 }
             }
 
-            MarkSpikes(result, 1.5f);
+            MarkSpikes(result, SpikeDetector.SpikeFactor);
             return result;
         }
 
@@ -241,7 +241,7 @@ namespace Optifunity.Editor.Module5
                 return ProfilerCategory.Rendering;
             if (name.Contains("Update") || name.Contains("Coroutine") || name.Contains("ScriptRun"))
                 return ProfilerCategory.ScriptUpdate;
-            if (name.StartsWith("GC.") || name.Contains("GarbageCollect"))
+            if (name == "GC.Collect" || name.StartsWith("GC.CollectIncremental") || name.Contains("GarbageCollect"))
                 return ProfilerCategory.GarbageCollection;
             if (name.StartsWith("Animator.") || name.Contains("Animation"))
                 return ProfilerCategory.Animation;
@@ -317,9 +317,7 @@ namespace Optifunity.Editor.Module5
         {
             long total = 0;
             foreach (var top in snapshot.TopLevelSamples)
-                foreach (var s in top.Flatten())
-                    if (s.GCAllocBytes > 0 && s.Depth <= 2) // tránh double-count
-                        total += s.GCAllocBytes;
+                total += top.GCAllocBytes; // Inclusive allocation columns: disjoint top-level subtrees only.
             return total;
         }
 

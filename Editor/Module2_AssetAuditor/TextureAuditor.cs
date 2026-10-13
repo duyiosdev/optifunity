@@ -11,9 +11,12 @@ namespace Optifunity.Editor.Module2
     /// </summary>
     public static class TextureAuditor
     {
+        public static string LastCoverage { get; private set; } = "Not scanned";
         public static List<PerformanceIssue> Audit(bool myScriptsOnly = false)
         {
             var issues = new List<PerformanceIssue>();
+            int inspected = 0, skipped = 0;
+            LastCoverage = "Incomplete (scan in progress or failed)";
             var platform = PlatformConfig.ActivePlatform;
             int recommendedMaxSize = PlatformConfig.GetRecommendedMaxTextureSize();
             bool isMobile = PlatformConfig.IsMobile;
@@ -24,17 +27,18 @@ namespace Optifunity.Editor.Module2
             {
                 string path = AssetDatabase.GUIDToAssetPath(guid);
                 if (path.StartsWith("Packages/")) continue;
-                if (myScriptsOnly && !UI.DashboardWindow.IsUserCodePath(path)) continue;
+                if (myScriptsOnly && !UI.DashboardWindow.IsUserCodePath(path)) { skipped++; continue; }
 
                 var importer = AssetImporter.GetAtPath(path) as TextureImporter;
-                if (importer == null) continue;
+                if (importer == null) { skipped++; continue; }
 
                 var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
-                if (texture == null) continue;
+                if (texture == null) { skipped++; continue; }
 
                 int width  = texture.width;
                 int height = texture.height;
 
+                inspected++;
                 // ─── 1. Compression Format ────────────────────────────────────────
                 CheckCompressionFormat(issues, importer, path, platform);
 
@@ -46,30 +50,30 @@ namespace Optifunity.Editor.Module2
                         Severity      = IssueSeverity.Warning,
                         Title         = "Texture NPOT — không phải Power of Two",
                         Description   = $"Texture {width}x{height} không phải bội số lũy thừa 2. " +
-                                        $"GPU di động không thể nén NPOT textures hiệu quả, dẫn đến VRAM tăng gấp đôi.",
+                                        $"NPOT support and padding depend on format, import settings and target GPU; measure actual memory.",
                         AssetPath     = path,
-                        FixSuggestion = $"Resize texture về kích thước POT gần nhất ({NextPOT(width)}x{NextPOT(height)}). " +
-                                        $"Hoặc bật Non Power of Two = Pad trong TextureImporter."
+                        FixSuggestion = $"Chỉ resize nếu format hoặc mục đích sử dụng yêu cầu POT. " +
+                                        $"Đối chiếu format được import trên thiết bị trước khi thay đổi."
                     });
                 }
 
                 // ─── 3. MaxSize quá lớn cho Mobile ────────────────────────────────
                 if (isMobile)
                 {
-                    int maxSize = importer.maxTextureSize;
-                    if (maxSize > recommendedMaxSize && (width > recommendedMaxSize || height > recommendedMaxSize))
+                    int maxSize = EffectiveMaxSize(importer);
+                    if (maxSize > recommendedMaxSize)
                     {
                         issues.Add(new PerformanceIssue
                         {
                             Severity       = IssueSeverity.Warning,
                             Title          = $"Texture MaxSize ({maxSize}px) vượt ngưỡng khuyến nghị cho Mobile",
-                            Description    = $"Thiết bị tier {PlatformConfig.GetAndroidTier()} nên giới hạn MaxSize ≤ {recommendedMaxSize}px. " +
+                            Description    = $"Plugin preset gợi ý MaxSize ≤ {recommendedMaxSize}px; đây không phải giới hạn thiết bị. " +
                                              $"Texture {System.IO.Path.GetFileName(path)} hiện là {maxSize}px.",
                             AssetPath      = path,
                             FixSuggestion  = $"Giảm MaxSize về {recommendedMaxSize}px trong TextureImporter → Platform Settings.",
                             CanAutoFix     = true,
                             AutoFixLabel   = $"Set MaxSize = {recommendedMaxSize}",
-                            AutoFixAction  = () => AutoFixMaxSize(path, recommendedMaxSize)
+
                         });
                     }
                 }
@@ -87,10 +91,10 @@ namespace Optifunity.Editor.Module2
                         Description   = $"Texture '{System.IO.Path.GetFileName(path)}' không có Mipmap. " +
                                         $"Khi object ở xa camera, GPU phải sample texture full-res gây aliasing và cache miss.",
                         AssetPath     = path,
-                        FixSuggestion = "Bật 'Generate Mip Maps' trong TextureImporter. Tăng dung lượng file 33% nhưng cải thiện cache hit và hiệu năng GPU đáng kể.",
+                        FixSuggestion = "Bật 'Generate Mip Maps' trong TextureImporter. Mip chain đầy đủ thường thêm khoảng 1/3 texel storage; lợi ích phụ thuộc cách sample và khoảng cách.",
                         CanAutoFix    = true,
                         AutoFixLabel  = "Enable MipMaps",
-                        AutoFixAction = () => AutoFixMipmap(path)
+
                     });
                 }
 
@@ -100,10 +104,10 @@ namespace Optifunity.Editor.Module2
                     long estimatedVRAM = (long)width * height * 4; // ~4 bytes/pixel uncompressed
                     issues.Add(new PerformanceIssue
                     {
-                        Severity      = IssueSeverity.Error,
+                        Severity      = IssueSeverity.Info,
                         Title         = "Texture không nén (Uncompressed) — tiêu tốn VRAM cực lớn",
                         Description   = $"Texture {width}x{height} uncompressed ≈ {estimatedVRAM / 1048576f:F1}MB VRAM. " +
-                                        $"Trên mobile 2GB RAM, một kết cấu 4K uncompressed chiếm ~1/3 ngân sách bộ nhớ.",
+                                        $"This base-level estimate excludes mipmaps, alignment and retained CPU copies.",
                         AssetPath     = path,
                         FixSuggestion = GetCompressionFix(platform)
                     });
@@ -113,6 +117,7 @@ namespace Optifunity.Editor.Module2
                 Resources.UnloadAsset(texture);
             }
 
+            LastCoverage = $"Texture2D: inspected={inspected}, skipped={skipped}; top-level imported assets under Assets only; package/generated/sub-asset coverage excluded";
             return issues;
         }
 
@@ -134,7 +139,7 @@ namespace Optifunity.Editor.Module2
                 issues.Add(new PerformanceIssue
                 {
                     Severity      = IssueSeverity.Error,
-                    Title         = $"Texture thiếu định dạng nén tối ưu cho {platform}",
+                    Title         = $"Review texture compression format cho {platform}",
                     Description   = GetCompressionDescription(platform),
                     AssetPath     = path,
                     FixSuggestion = GetCompressionFix(platform)
@@ -187,7 +192,7 @@ namespace Optifunity.Editor.Module2
                     "Android cần dùng ASTC (hỗ trợ 80%+ thiết bị hiện đại) hoặc ETC2 (compatibility). " +
                     "ASTC 4x4 = 8bpp, ASTC 8x8 = 2bpp. Kết cấu uncompressed tốn gấp 4-16 lần VRAM.",
                 Runtime.TargetPlatformType.iOS =>
-                    "iOS từ chip A8 (2014) hỗ trợ ASTC. Bắt buộc dùng ASTC cho mọi kết cấu iOS hiện đại. " +
+                    "iOS từ chip A8 (2014) hỗ trợ ASTC. Chọn format theo mục đích texture và device support, không bắt buộc ASTC cho mọi texture. " +
                     "iOS Jetsam sẽ kill app nếu VRAM vượt High-Water Mark mà không báo trước.",
                 Runtime.TargetPlatformType.PC =>
                     "PC/DirectX cần dùng BC7 (DirectX 11+) hoặc DXT5. BC7 cung cấp chất lượng cao hơn DXT5 đáng kể.",
@@ -209,22 +214,12 @@ namespace Optifunity.Editor.Module2
 
         // ─── Auto Fix Helpers ─────────────────────────────────────────────────────
 
-        private static void AutoFixMaxSize(string path, int maxSize)
+        private static int EffectiveMaxSize(TextureImporter importer)
         {
-            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
-            if (importer == null) return;
-            importer.maxTextureSize = maxSize;
-            importer.SaveAndReimport();
-            Debug.Log($"[Optifunity] Auto-Fixed MaxSize={maxSize} cho: {path}");
-        }
-
-        private static void AutoFixMipmap(string path)
-        {
-            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
-            if (importer == null) return;
-            importer.mipmapEnabled = true;
-            importer.SaveAndReimport();
-            Debug.Log($"[Optifunity] Auto-Fixed MipMap=true cho: {path}");
+            string target = PlatformConfig.ActivePlatform == Runtime.TargetPlatformType.Android ? "Android" :
+                PlatformConfig.ActivePlatform == Runtime.TargetPlatformType.iOS ? "iPhone" : "Standalone";
+            var settings = importer.GetPlatformTextureSettings(target);
+            return settings.overridden ? settings.maxTextureSize : importer.maxTextureSize;
         }
 
         // ─── Math Helpers ─────────────────────────────────────────────────────────

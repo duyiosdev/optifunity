@@ -117,9 +117,10 @@ namespace Optifunity.Editor.Module5
         /// <summary>Tổng thời gian của tất cả samples khớp marker</summary>
         public float SumTime(string markerName)
         {
-            float total = 0f;
-            foreach (var s in FindAll(markerName)) total += s.TotalTimeMs;
-            return total;
+            if (TopLevelSamples.Count == 0) return FindAll(markerName).Sum(sample => sample.TotalTimeMs);
+            float SumTree(ProfilerSample sample) => string.Equals(sample.Name, markerName, StringComparison.OrdinalIgnoreCase)
+                ? sample.TotalTimeMs : sample.Children.Sum(SumTree);
+            return TopLevelSamples.Sum(SumTree);
         }
 
         /// <summary>SelfTime tổng của tất cả samples khớp marker</summary>

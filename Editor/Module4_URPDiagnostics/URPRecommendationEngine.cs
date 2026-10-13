@@ -39,11 +39,11 @@ namespace Optifunity.Editor.Module4
                 issues.Add(new PerformanceIssue
                 {
                     Severity      = IssueSeverity.Error,
-                    Title         = "SRP Batcher bị TẮT — CPU render thread quá tải",
-                    Description   = "SRP Batcher là cơ chế tối ưu hóa Draw Calls quan trọng nhất trong URP. " +
+                    Title         = "SRP Batcher is disabled — review rendering strategy",
+                    Description   = "SRP Batcher is one CPU optimization strategy for compatible shaders. " +
                                     "Khi tắt, CPU phải thực hiện SetPass Calls tốn kém cho mỗi Material " +
                                     "thay vì dùng Constant Buffer (CBUFFER) để batch chúng lại. " +
-                                    "Điều này gây nghẽn cổ chai nghiêm trọng trên Render Thread.",
+                                    "A disabled setting alone does not establish a bottleneck. Measure CPU render preparation cost.",
                     AssetPath     = snapshot.AssetPath,
                     FixSuggestion = "Bật SRP Batcher trong URP Asset (Universal Render Pipeline Asset → Advanced → SRP Batcher). " +
                                     "Đảm bảo tất cả Custom Shaders đóng gói properties vào CBUFFER_START/CBUFFER_END."
@@ -68,8 +68,8 @@ namespace Optifunity.Editor.Module4
                 issues.Add(new PerformanceIssue
                 {
                     Severity      = IssueSeverity.Warning,
-                    Title         = "HDR bật trên Mobile — băng thông Color Buffer tăng gấp đôi",
-                    Description   = "HDR yêu cầu Color Buffer FP16 thay vì RGB8, tăng gấp đôi băng thông bộ nhớ " +
+                    Title         = "Review HDR target format and bandwidth",
+                    Description   = "HDR có nhiều format và precision; băng thông phụ thuộc format, resolution và render passes. Đo trước/sau " +
                                     "trên GPU di động. GPU kiến trúc TBDR (Tile-Based) sẽ bị ảnh hưởng nặng nhất.",
                     AssetPath     = snapshot.AssetPath,
                     FixSuggestion = "Tắt HDR trong URP Asset → Quality → HDR nếu không có hiệu ứng Bloom/Exposure " +
@@ -162,7 +162,7 @@ namespace Optifunity.Editor.Module4
                         Severity      = IssueSeverity.Warning,
                         Title         = "Shadow Atlas Resolution quá lớn cho Mobile",
                         Description   = $"Shadow map {snapshot.MainLightShadowResolution}x{snapshot.MainLightShadowResolution} " +
-                                        $"chiếm nhiều VRAM. Trên mobile, 512-1024 là đủ.",
+                                        $"chiếm nhiều VRAM. Resolution depends on scene coverage and desired shadow quality.",
                         AssetPath     = snapshot.AssetPath,
                         FixSuggestion = $"Giảm Main Light Shadow Resolution về 512 hoặc 1024 trong URP Asset → Shadows."
                     });
@@ -182,7 +182,7 @@ namespace Optifunity.Editor.Module4
                                     $"Kiến trúc TBDR thực ra xử lý MSAA hiệu quả hơn PC, nhưng giá trị cao (4x, 8x) vẫn tốn kém.",
                     AssetPath     = snapshot.AssetPath,
                     FixSuggestion = "Giảm MSAA về 2x hoặc tắt MSAA và dùng Post-Processing FXAA thay thế " +
-                                    "(chất lượng thấp hơn nhưng hiệu năng tốt hơn nhiều)."
+                                    "(chất lượng khác; đo GPU và hình ảnh trên thiết bị trước khi chọn)."
                 });
             }
 

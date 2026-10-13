@@ -12,6 +12,7 @@ namespace Optifunity.Editor.Module2
     public static class AssetAuditRunner
     {
         private static bool _isRunning;
+        public static string LastCoverage { get; private set; } = "Not scanned";
 
         public static List<PerformanceIssue> RunAll(bool showProgress = true, bool myScriptsOnly = false)
         {
@@ -22,6 +23,7 @@ namespace Optifunity.Editor.Module2
             }
 
             _isRunning = true;
+            LastCoverage = "Incomplete: asset audit started";
             var all = new List<PerformanceIssue>();
 
             try
@@ -43,6 +45,7 @@ namespace Optifunity.Editor.Module2
 
                 var audioIssues = AudioAuditor.Audit(myScriptsOnly);
                 all.AddRange(audioIssues);
+                LastCoverage = TextureAuditor.LastCoverage + "; " + MeshAuditor.LastCoverage + "; " + AudioAuditor.LastCoverage;
             }
             finally
             {

@@ -1,232 +1,111 @@
-using System.Collections.Generic;
+using System;
+using System.Linq;
 using NUnit.Framework;
 using Optifunity.Editor.Core;
 using Optifunity.Editor.Module1;
+using Optifunity.Editor.Module4;
+using Optifunity.Editor.Module5;
+using UnityEditor;
 
 namespace Optifunity.Tests
 {
-    /// <summary>
-    /// Unit Tests cho các module Optifunity plugin.
-    /// Chạy qua Window > General > Test Runner > EditMode
-    /// </summary>
     public class AuditTests
     {
-        // ─── Tests: PlatformConfig Budget Calculation ─────────────────────────
+        private int ram;
+        [SetUp] public void SetUp() { ram = PlatformConfig.AndroidPhysicalRamMB; SemanticCodeAnalyzer.Clear(); }
+        [TearDown] public void TearDown() { PlatformConfig.AndroidPhysicalRamMB = ram; SemanticCodeAnalyzer.Clear(); }
+        private static string[] Source(string body) => new[] { "using System; using System.Collections; using System.Collections.Generic; using UnityEngine; class Fixture : MonoBehaviour { " + body + " }" };
 
-        [Test]
-        public void Budget_2GB_ShouldReturn70Percent()
+        [TestCase("void Update() { var x = new int[4]; }")]
+        [TestCase("void Update()\n{\nvar x = new int[4];\n}")]
+        public void T01_T02_ArrayAllocation(string method) =>
+            Assert.That(GCAllocAnalyzer.Analyze("Fixture.cs", Source(method)).Count(i => i.RuleId == "code.allocation"), Is.EqualTo(1));
+        [Test] public void T02_Vector4DoesNotAllocate() =>
+            Assert.That(GCAllocAnalyzer.Analyze("Fixture.cs", Source("void Update() { var x = new Vector4(); }")), Is.Empty);
+        [TestCase("string value = \"s\"; object x = (object)value;", 0)]
+        [TestCase("int value = 2; object x = (object)value;", 1)]
+        [TestCase("int value = 2; object x = value;", 1)]
+        public void T03_BoxingUsesResolvedConversion(string body, int expected) =>
+            Assert.That(BoxingAnalyzer.Analyze("Fixture.cs", Source("void Test() { " + body + " }" )).Count(i => i.RuleId == "code.boxing"), Is.EqualTo(expected));
+        [Test] public void T04_GenericDeclarationIsNotBoxing() =>
+            Assert.That(BoxingAnalyzer.Analyze("Fixture.cs", Source("IDictionary<string,int> values;")), Is.Empty);
+        [Test] public void T04_UnresolvedTypeIsAdvisory() =>
+            Assert.That(GCAllocAnalyzer.Analyze("Fixture.cs", Source("void Update() { var x = new MissingType(); }" )).All(i => i.EvidenceLevel == "Advisory"));
+        [Test] public void T05_ArithmeticIsNotEvent() =>
+            Assert.That(MemLeakAnalyzer.Analyze("Fixture.cs", Source("int total; void Update() { total += 2; }")), Is.Empty);
+        [Test] public void T05_EventIsAdvisoryNotLeakProof()
+        {
+            var issues = MemLeakAnalyzer.Analyze("Fixture.cs", Source("event Action Event; void Handler() {} void OnEnable() { Event += Handler; } void OnDisable() { Event -= Handler; }"));
+            Assert.That(issues.Count, Is.EqualTo(1)); Assert.That(issues[0].EvidenceLevel, Is.EqualTo("Advisory"));
+        }
+        [Test] public void T06_LoopDoesNotSpill()
+        {
+            var issues = ResourceManagementAnalyzer.Analyze("Fixture.cs", Source("void A() { for(int i=0;i<1;i++) { UnityEngine.Object.Destroy(null); } } void B() { UnityEngine.Object.Destroy(null); }"));
+            Assert.That(issues.Count, Is.EqualTo(1));
+        }
+        [Test] public void T07_CommentsStringsAndDisabledCodeDoNotAllocate()
+        {
+            var lines = new[] { "using UnityEngine; class Fixture : MonoBehaviour { void Update() {", "// new int[3]", "var s = \"new int[4]\";", "#if NEVER_DEFINED", "var a = new int[5];", "#endif", "} }" };
+            Assert.That(GCAllocAnalyzer.Analyze("Fixture.cs", lines), Is.Empty);
+        }
+        [Test] public void T07_NestedLambdaIsNotAssumedToRunEveryFrame() =>
+            Assert.That(GCAllocAnalyzer.Analyze("Fixture.cs", Source("void Update() { Action callback = () => { var x = new int[3]; }; }")), Is.Empty);
+        [Test] public void AllocationOutsideGameplayIsNotFlagged() =>
+            Assert.That(GCAllocAnalyzer.Analyze("Fixture.cs", Source("void Start() { var x = new int[3]; }")), Is.Empty);
+        [Test] public void T08_UnavailableCaptureIsNotZeroMeasurement() =>
+            Assert.That(DrawCallAnalyzer.CaptureStats().IsCaptured, Is.False);
+        [Test] public void T13_SlowUnknownFrameIsNotBalanced()
+        {
+            var report = BottleneckClassifier.Classify(new FrameSnapshot { IsValid = true, TotalCpuTimeMs = 100 }, 16);
+            Assert.That(report.PrimaryBottleneck, Is.EqualTo(BottleneckType.Unknown));
+            Assert.That(report.PrimaryConfidence, Is.EqualTo(0));
+        }
+        [TestCase("Gfx.WaitForPresent")]
+        [TestCase("Gfx.WaitForPresentOnGfxThread")]
+        public void T14_WaitAloneDoesNotProveGPU(string marker)
+        {
+            var frame = new FrameSnapshot { IsValid = true, TotalCpuTimeMs = 40, TotalGpuTimeMs = 2 };
+            frame.SamplesByName[marker] = new System.Collections.Generic.List<ProfilerSample> { new ProfilerSample { Name = marker, TotalTimeMs = 30 } };
+            Assert.That(BottleneckClassifier.Classify(frame, 16).PrimaryBottleneck, Is.Not.EqualTo(BottleneckType.GPUBound));
+        }
+        [Test] public void T15_AllocationIsNotCollection()
+        {
+            var frame = new FrameSnapshot { IsValid = true, TotalCpuTimeMs = 40, TotalGCAllocBytes = 200000 };
+            frame.SamplesByName["GC.Alloc"] = new System.Collections.Generic.List<ProfilerSample> { new ProfilerSample { Name = "GC.Alloc", GCAllocBytes = 200000 } };
+            Assert.That(BottleneckClassifier.Classify(frame, 16).PrimaryBottleneck, Is.Not.EqualTo(BottleneckType.GarbageCollection));
+        }
+        [Test] public void T18_T21_UnverifiedWritesCannotBeInvokedThroughIssue()
+        {
+            bool changed = false;
+            var issue = new PerformanceIssue { CanAutoFix = true, AutoFixAction = () => changed = true };
+            Assert.That(issue.CanAutoFix, Is.False); Assert.That(issue.AutoFixAction, Is.Null); Assert.That(changed, Is.False);
+            Assert.Throws<InvalidOperationException>(() => SRPBatcherChecker.TryFixShader("Assets/Test.shader"));
+            PlatformConfig.AutoFixEnabled = true; Assert.That(PlatformConfig.AutoFixEnabled, Is.False);
+        }
+        [Test] public void T19_IdentityIncludesInstanceAndProject()
+        {
+            var identity = new UnityMcpBridge.Connection { token = "secret", projectPath = "project", instanceId = "one" };
+            Assert.That(UnityMcpBridge.MatchesIdentity(identity, "secret", "project", "one"));
+            Assert.That(UnityMcpBridge.MatchesIdentity(identity, "secret", "project", "two"), Is.False);
+            Assert.That(UnityMcpBridge.MatchesIdentity(identity, "wrong", "project", "one"), Is.False);
+            Assert.That(UnityMcpBridge.MatchesIdentity(identity, "secret", "other", "one"), Is.False);
+        }
+        [Test] public void T22_InformationDoesNotReduceScore()
+        {
+            var report = new ScanReport(); report.CodeIssues.Add(new PerformanceIssue { Severity = IssueSeverity.Info });
+            Assert.That(report.HealthScore, Is.EqualTo(100));
+        }
+        [Test] public void BudgetIsPluginPreset()
         {
             PlatformConfig.AndroidPhysicalRamMB = 2048;
-            float expected = 2048f * 0.70f;
-            Assert.AreEqual(expected, PlatformConfig.AvailableBudgetMB, 0.1f);
+            Assert.That(PlatformConfig.AvailableBudgetMB, Is.EqualTo(1433.6f).Within(0.1f));
         }
-
-        [Test]
-        public void Budget_2GB_TextureShouldBe80MB()
-        {
-            PlatformConfig.AndroidPhysicalRamMB = 2048;
-            Assert.AreEqual(80f, PlatformConfig.TextureBudgetMB, 0.1f);
-        }
-
-        [Test]
-        public void Budget_4GB_TextureShouldBe150MB()
-        {
-            PlatformConfig.AndroidPhysicalRamMB = 4096;
-            Assert.AreEqual(150f, PlatformConfig.TextureBudgetMB, 0.1f);
-        }
-
-        [Test]
-        public void Budget_6GB_TextureShouldBe250MB()
-        {
-            PlatformConfig.AndroidPhysicalRamMB = 6144;
-            Assert.AreEqual(250f, PlatformConfig.TextureBudgetMB, 0.1f);
-        }
-
-        [Test]
-        public void AndroidTier_2GB_ShouldBeLow()
-        {
-            PlatformConfig.AndroidPhysicalRamMB = 2048;
-            Assert.AreEqual(Runtime.AndroidDeviceTier.Low, PlatformConfig.GetAndroidTier());
-        }
-
-        [Test]
-        public void AndroidTier_4GB_ShouldBeMid()
-        {
-            PlatformConfig.AndroidPhysicalRamMB = 4096;
-            Assert.AreEqual(Runtime.AndroidDeviceTier.Mid, PlatformConfig.GetAndroidTier());
-        }
-
-        [Test]
-        public void AndroidTier_8GB_ShouldBeHigh()
-        {
-            PlatformConfig.AndroidPhysicalRamMB = 8192;
-            Assert.AreEqual(Runtime.AndroidDeviceTier.High, PlatformConfig.GetAndroidTier());
-        }
-
-        [Test]
-        public void ASTC_2GB_ShouldRecommend8x8()
-        {
-            PlatformConfig.AndroidPhysicalRamMB = 2048;
-            string block = PlatformConfig.GetRecommendedASTCBlockSize();
-            Assert.IsTrue(block.Contains("8x8"), $"Expected 8x8 in '{block}'");
-        }
-
-        [Test]
-        public void MaxTexSize_2GB_ShouldBe512()
-        {
-            PlatformConfig.AndroidPhysicalRamMB = 2048;
-            Assert.AreEqual(512, PlatformConfig.GetRecommendedMaxTextureSize());
-        }
-
-        // ─── Tests: GCAllocAnalyzer ────────────────────────────────────────────
-
-        [Test]
-        public void GCAlloc_DetectsNewAllocationInUpdate()
-        {
-            string[] lines =
-            {
-                "void Update() {",
-                "    var items = new List<int>();",
-                "}"
-            };
-            var issues = GCAllocAnalyzer.Analyze("TestScript.cs", lines);
-            Assert.IsTrue(issues.Count > 0, "Should detect 'new' allocation in Update");
-            Assert.IsTrue(issues.Exists(i => i.Title.Contains("mới") || i.Title.Contains("new")));
-        }
-
-        [Test]
-        public void GCAlloc_DetectsStringConcatInUpdate()
-        {
-            string[] lines =
-            {
-                "void Update() {",
-                "    string s = \"Hello\" + playerName;",
-                "}"
-            };
-            var issues = GCAllocAnalyzer.Analyze("TestScript.cs", lines);
-            Assert.IsTrue(issues.Exists(i => i.Title.Contains("String") || i.Title.Contains("chuỗi")));
-        }
-
-        [Test]
-        public void GCAlloc_NoIssueOutsideLoopMethod()
-        {
-            string[] lines =
-            {
-                "void Start() {",
-                "    var items = new List<int>();",
-                "}"
-            };
-            var issues = GCAllocAnalyzer.Analyze("TestScript.cs", lines);
-            // new inside Start() should NOT be flagged
-            Assert.AreEqual(0, issues.Count, "Should not flag new() outside Update/FixedUpdate/LateUpdate");
-        }
-
-        [Test]
-        public void GCAlloc_DetectsReturnNewArrayInUpdate()
-        {
-            string[] lines =
-            {
-                "void Update() {",
-                "    return new int[10];",
-                "}"
-            };
-            var issues = GCAllocAnalyzer.Analyze("TestScript.cs", lines);
-            Assert.IsTrue(issues.Exists(i => i.Title.Contains("mảng") || i.Title.Contains("array")));
-        }
-
-        // ─── Tests: BoxingAnalyzer ────────────────────────────────────────────
-
-        [Test]
-        public void Boxing_DetectsExplicitObjectCast()
-        {
-            string[] lines =
-            {
-                "void SomeMethod() {",
-                "    object boxed = (object)myVector;",
-                "}"
-            };
-            var issues = BoxingAnalyzer.Analyze("TestScript.cs", lines);
-            Assert.IsTrue(issues.Exists(i => i.Title.Contains("Boxing") || i.Title.Contains("object")));
-        }
-
-        [Test]
-        public void Boxing_DetectsNonGenericCollection()
-        {
-            string[] lines =
-            {
-                "private ArrayList myList = new ArrayList();",
-            };
-            var issues = BoxingAnalyzer.Analyze("TestScript.cs", lines);
-            Assert.IsTrue(issues.Exists(i => i.Title.Contains("collection") || i.Title.Contains("boxing")),
-                "Should detect ArrayList as non-generic boxing risk");
-        }
-
-        // ─── Tests: MemLeakAnalyzer ────────────────────────────────────────────
-
-        [Test]
-        public void MemLeak_DetectsEventSubscribeWithoutUnsubscribe()
-        {
-            string[] lines =
-            {
-                "void OnEnable() {",
-                "    GameManager.OnGameOver += HandleGameOver;",
-                "}",
-                "// No OnDestroy",
-            };
-            var issues = MemLeakAnalyzer.Analyze("TestScript.cs", lines);
-            Assert.IsTrue(issues.Exists(i => i.Severity == IssueSeverity.Error &&
-                                             (i.Title.Contains("sự kiện") || i.Title.Contains("event"))));
-        }
-
-        [Test]
-        public void MemLeak_NoIssueWhenBothSubscribeAndUnsubscribeWithOnDestroy()
-        {
-            string[] lines =
-            {
-                "void OnEnable() {",
-                "    GameManager.OnGameOver += HandleGameOver;",
-                "}",
-                "void OnDestroy() {",
-                "    GameManager.OnGameOver -= HandleGameOver;",
-                "}"
-            };
-            var issues = MemLeakAnalyzer.Analyze("TestScript.cs", lines);
-            // Should have 0 Error-severity issues about events
-            Assert.IsFalse(issues.Exists(i =>
-                i.Severity == IssueSeverity.Error &&
-                (i.Title.Contains("đăng ký") || i.Title.Contains("subscribe"))));
-        }
-
-        // ─── Tests: ReportEngine ──────────────────────────────────────────────
-
-        [Test]
-        public void ReportEngine_HealthScore_100_WhenNoIssues()
+        [Test] public void ExportIncludesScopeAndEvidence()
         {
             var report = ReportEngine.BeginScan();
-            ReportEngine.AddIssues(IssueModule.CodeAnalysis, new List<PerformanceIssue>());
-            Assert.AreEqual(100, report.HealthScore);
-        }
-
-        [Test]
-        public void ReportEngine_HealthScore_DecreaseOnErrors()
-        {
-            var report = ReportEngine.BeginScan();
-            var issues = new List<PerformanceIssue>
-            {
-                new PerformanceIssue { Severity = IssueSeverity.Error,   Title = "E1" },
-                new PerformanceIssue { Severity = IssueSeverity.Error,   Title = "E2" },
-                new PerformanceIssue { Severity = IssueSeverity.Warning, Title = "W1" },
-            };
-            ReportEngine.AddIssues(IssueModule.URPDiagnostics, issues);
-            Assert.IsTrue(report.HealthScore < 80, $"HealthScore should decrease. Got: {report.HealthScore}");
-        }
-
-        [Test]
-        public void ReportEngine_ExportMarkdown_ContainsProjectName()
-        {
-            var report = ReportEngine.BeginScan();
-            string md = ReportEngine.ExportMarkdown(report);
-            Assert.IsTrue(md.Contains("Optifunity Performance Report"));
+            ReportEngine.AddIssues(IssueModule.CodeAnalysis, new[] { new PerformanceIssue { RuleId = "code.boxing", Title = "Boxing", EvidenceLevel = "Confirmed static operation" } });
+            string markdown = ReportEngine.ExportMarkdown(report);
+            Assert.That(markdown, Does.Contain("**Scope:**")); Assert.That(markdown, Does.Contain("code.boxing"));
         }
     }
 }

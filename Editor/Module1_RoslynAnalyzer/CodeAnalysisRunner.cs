@@ -14,7 +14,7 @@ namespace Optifunity.Editor.Module1
         private static bool _isRunning;
         public static string LastCoverage { get; private set; } = "Not scanned";
 
-        public static List<Core.PerformanceIssue> RunAll(bool showProgress = true, bool myScriptsOnly = false, System.Func<bool> shouldCancel = null)
+        public static List<Core.PerformanceIssue> RunAll(bool showProgress = true, bool myScriptsOnly = false, System.Func<bool> shouldCancel = null, bool includeCallGraph = false)
         {
             if (_isRunning)
             {
@@ -82,14 +82,15 @@ namespace Optifunity.Editor.Module1
                     allIssues.AddRange(leakIssues);
                     allIssues.AddRange(antiIssues);
                     allIssues.AddRange(resourceIssues);
+                    if (includeCallGraph) allIssues.AddRange(CallGraphAnalyzer.Analyze(assetPath, string.Join("\n", lines)));
                     scanned++;
                 }
             }
             catch { incomplete = true; throw; }
             finally
             {
-                incomplete |= allIssues.Exists(i => i.RuleId == "code.unresolved");
-                LastCoverage = $"{(incomplete ? "Incomplete" : "Complete within selected scope")}: Assets C#; MyScripts={myScriptsOnly}; scanned={scanned}; skipped={skipped}; Packages/generated sources excluded";
+                incomplete |= allIssues.Exists(i => i.RuleId == "code.unresolved" || i.Title == "Call graph incomplete");
+                LastCoverage = $"{(incomplete ? "Incomplete" : "Complete within selected scope")}: Assets C#; MyScripts={myScriptsOnly}; scanned={scanned}; skipped={skipped}; Packages/generated sources excluded; callGraph={includeCallGraph} (static same-compilation paths only)";
                 SemanticCodeAnalyzer.Clear();
                 _isRunning = false;
                 if (showProgress) EditorUtility.ClearProgressBar();

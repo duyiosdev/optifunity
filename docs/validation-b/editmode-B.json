@@ -1,0 +1,374 @@
+{
+  "result": "Passed",
+  "total": "72",
+  "passed": "72",
+  "failed": "0",
+  "skipped": "0",
+  "start-time": "2026-10-13 09:56:18Z",
+  "end-time": "2026-10-13 09:56:36Z",
+  "duration": "17.3718363",
+  "optifunity_tests": 71,
+  "tests": [
+    {
+      "fullname": "Optifunity.Tests.AcceptanceTests.AllocationMarkerIsNotCollectionInCategoryChart",
+      "result": "Passed",
+      "duration": "0.016843"
+    },
+    {
+      "fullname": "Optifunity.Tests.AcceptanceTests.CaptureResetClearsSelectionAndNotifiesWindows",
+      "result": "Passed",
+      "duration": "0.004573"
+    },
+    {
+      "fullname": "Optifunity.Tests.AcceptanceTests.CatalogRejectsMissingEvidenceAndUnsupportedFix",
+      "result": "Passed",
+      "duration": "0.014955"
+    },
+    {
+      "fullname": "Optifunity.Tests.AcceptanceTests.DashboardFullThenModuleScanKeepsCoverageInExport",
+      "result": "Passed",
+      "duration": "3.086337"
+    },
+    {
+      "fullname": "Optifunity.Tests.AcceptanceTests.UnknownRuleCannotRetainConfirmedSeverity",
+      "result": "Passed",
+      "duration": "0.000854"
+    },
+    {
+      "fullname": "Optifunity.Tests.AssetRegressionTests.T10_AudioOverrideUsesSelectedPlatform",
+      "result": "Passed",
+      "duration": "0.184524"
+    },
+    {
+      "fullname": "Optifunity.Tests.AssetRegressionTests.T14_MeasuredGPUCanSupportHypothesis",
+      "result": "Passed",
+      "duration": "0.009208"
+    },
+    {
+      "fullname": "Optifunity.Tests.AssetRegressionTests.T15_CollectionTimeIsMeasuredNotInvented",
+      "result": "Passed",
+      "duration": "0.001337"
+    },
+    {
+      "fullname": "Optifunity.Tests.AssetRegressionTests.T22_SimpleRendererDoesNotRequireLODAndMpbFilterIsInformation",
+      "result": "Passed",
+      "duration": "0.015086"
+    },
+    {
+      "fullname": "Optifunity.Tests.AuditTests.AllocationOutsideGameplayIsNotFlagged",
+      "result": "Passed",
+      "duration": "0.271917"
+    },
+    {
+      "fullname": "Optifunity.Tests.AuditTests.BudgetIsPluginPreset",
+      "result": "Passed",
+      "duration": "0.001233"
+    },
+    {
+      "fullname": "Optifunity.Tests.AuditTests.ExportIncludesScopeAndEvidence",
+      "result": "Passed",
+      "duration": "0.001317"
+    },
+    {
+      "fullname": "Optifunity.Tests.AuditTests.T01_T02_ArrayAllocation(\"void Update() { var x = new int[4]; }\")",
+      "result": "Passed",
+      "duration": "0.264329"
+    },
+    {
+      "fullname": "Optifunity.Tests.AuditTests.T01_T02_ArrayAllocation(\"void Update()\\n{\\nvar x = new int[4];\\n}\")",
+      "result": "Passed",
+      "duration": "0.309283"
+    },
+    {
+      "fullname": "Optifunity.Tests.AuditTests.T02_Vector4DoesNotAllocate",
+      "result": "Passed",
+      "duration": "0.267467"
+    },
+    {
+      "fullname": "Optifunity.Tests.AuditTests.T03_BoxingUsesResolvedConversion(\"string value = \\\"s\\\"; object x = (object)value;\",0)",
+      "result": "Passed",
+      "duration": "0.277598"
+    },
+    {
+      "fullname": "Optifunity.Tests.AuditTests.T03_BoxingUsesResolvedConversion(\"int value = 2; object x = (object)value;\",1)",
+      "result": "Passed",
+      "duration": "0.311314"
+    },
+    {
+      "fullname": "Optifunity.Tests.AuditTests.T03_BoxingUsesResolvedConversion(\"int value = 2; object x = value;\",1)",
+      "result": "Passed",
+      "duration": "0.270828"
+    },
+    {
+      "fullname": "Optifunity.Tests.AuditTests.T04_GenericDeclarationIsNotBoxing",
+      "result": "Passed",
+      "duration": "0.303513"
+    },
+    {
+      "fullname": "Optifunity.Tests.AuditTests.T04_UnresolvedTypeIsAdvisory",
+      "result": "Passed",
+      "duration": "0.320823"
+    },
+    {
+      "fullname": "Optifunity.Tests.AuditTests.T05_ArithmeticIsNotEvent",
+      "result": "Passed",
+      "duration": "0.273959"
+    },
+    {
+      "fullname": "Optifunity.Tests.AuditTests.T05_EventIsAdvisoryNotLeakProof",
+      "result": "Passed",
+      "duration": "0.273965"
+    },
+    {
+      "fullname": "Optifunity.Tests.AuditTests.T06_LoopDoesNotSpill",
+      "result": "Passed",
+      "duration": "0.276863"
+    },
+    {
+      "fullname": "Optifunity.Tests.AuditTests.T07_CommentsStringsAndDisabledCodeDoNotAllocate",
+      "result": "Passed",
+      "duration": "0.313653"
+    },
+    {
+      "fullname": "Optifunity.Tests.AuditTests.T07_NestedLambdaIsNotAssumedToRunEveryFrame",
+      "result": "Passed",
+      "duration": "0.287367"
+    },
+    {
+      "fullname": "Optifunity.Tests.AuditTests.T08_UnavailableCaptureIsNotZeroMeasurement",
+      "result": "Passed",
+      "duration": "0.000295"
+    },
+    {
+      "fullname": "Optifunity.Tests.AuditTests.T13_SlowUnknownFrameIsNotBalanced",
+      "result": "Passed",
+      "duration": "0.000540"
+    },
+    {
+      "fullname": "Optifunity.Tests.AuditTests.T14_WaitAloneDoesNotProveGPU(\"Gfx.WaitForPresent\")",
+      "result": "Passed",
+      "duration": "0.000510"
+    },
+    {
+      "fullname": "Optifunity.Tests.AuditTests.T14_WaitAloneDoesNotProveGPU(\"Gfx.WaitForPresentOnGfxThread\")",
+      "result": "Passed",
+      "duration": "0.000285"
+    },
+    {
+      "fullname": "Optifunity.Tests.AuditTests.T15_AllocationIsNotCollection",
+      "result": "Passed",
+      "duration": "0.000445"
+    },
+    {
+      "fullname": "Optifunity.Tests.AuditTests.T18_T21_UnverifiedWritesCannotBeInvokedThroughIssue",
+      "result": "Passed",
+      "duration": "0.000830"
+    },
+    {
+      "fullname": "Optifunity.Tests.AuditTests.T19_IdentityIncludesInstanceAndProject",
+      "result": "Passed",
+      "duration": "0.000417"
+    },
+    {
+      "fullname": "Optifunity.Tests.AuditTests.T22_InformationDoesNotReduceScore",
+      "result": "Passed",
+      "duration": "0.000324"
+    },
+    {
+      "fullname": "Optifunity.Tests.IntegrationTests.CatalogHasSourcesForConfirmedRules",
+      "result": "Passed",
+      "duration": "0.000518"
+    },
+    {
+      "fullname": "Optifunity.Tests.IntegrationTests.T08_RealCounterAdapterAndMissingCounter",
+      "result": "Passed",
+      "duration": "0.003592"
+    },
+    {
+      "fullname": "Optifunity.Tests.IntegrationTests.T09_QualityOverrideAndInheritance",
+      "result": "Passed",
+      "duration": "0.008849"
+    },
+    {
+      "fullname": "Optifunity.Tests.IntegrationTests.T10_TextureOverrideWinsOverDefault",
+      "result": "Passed",
+      "duration": "0.128927"
+    },
+    {
+      "fullname": "Optifunity.Tests.IntegrationTests.T11_T12_StrategiesAreNotContradictoryRequirements",
+      "result": "Passed",
+      "duration": "0.001332"
+    },
+    {
+      "fullname": "Optifunity.Tests.IntegrationTests.T16_ReusedFrameIndexDoesNotReturnOldCapture",
+      "result": "Passed",
+      "duration": "0.002538"
+    },
+    {
+      "fullname": "Optifunity.Tests.IntegrationTests.T17_CancellationIsIncomplete",
+      "result": "Passed",
+      "duration": "0.134969"
+    },
+    {
+      "fullname": "Optifunity.Tests.IntegrationTests.T17_ModuleScanPreservesOtherModuleResults",
+      "result": "Passed",
+      "duration": "0.000548"
+    },
+    {
+      "fullname": "Optifunity.Tests.IntegrationTests.T19_T20_LiveBridgeAuthAndJson",
+      "result": "Passed",
+      "duration": "0.254397"
+    },
+    {
+      "fullname": "Optifunity.Tests.IntegrationTests.T21_CommentOrMissingShaderIsNotCompatibilityProof",
+      "result": "Passed",
+      "duration": "0.000486"
+    },
+    {
+      "fullname": "Optifunity.Tests.LifecycleTests.InclusiveMarkerDoesNotDoubleCountItsChild",
+      "result": "Passed",
+      "duration": "0.000326"
+    },
+    {
+      "fullname": "Optifunity.Tests.LifecycleTests.OrdinaryMethodNamedUpdateIsNotUnityCallback",
+      "result": "Passed",
+      "duration": "0.270569"
+    },
+    {
+      "fullname": "Optifunity.Tests.LifecycleTests.T20_ExpiredQueueDoesNotExecuteAfterEditorResumes",
+      "result": "Passed",
+      "duration": "4.013641"
+    },
+    {
+      "fullname": "Optifunity.Tests.LifecycleTests.T20_ReloadRotatesIdentityAndRemovesDescriptor",
+      "result": "Passed",
+      "duration": "0.005628"
+    },
+    {
+      "fullname": "Optifunity.Tests.McpClientTests.NodeClientUsesSelectedEditor",
+      "result": "Passed",
+      "duration": "0.167436"
+    },
+    {
+      "fullname": "Optifunity.Tests.McpClientTests.PythonClientUsesSelectedEditor",
+      "result": "Passed",
+      "duration": "0.132460"
+    },
+    {
+      "fullname": "Optifunity.Tests.MilestoneBTests.B_AddressablesConfiguredRootOrExplicitAbsence",
+      "result": "Passed",
+      "duration": "0.645029"
+    },
+    {
+      "fullname": "Optifunity.Tests.MilestoneBTests.B_BudgetRequiresResidentEvidence",
+      "result": "Passed",
+      "duration": "0.003182"
+    },
+    {
+      "fullname": "Optifunity.Tests.MilestoneBTests.B_CallGraphCorpus(\"void Update(){ Helper(); } void Helper(){ var a=new int[4]; }\",True)",
+      "result": "Passed",
+      "duration": "0.498453"
+    },
+    {
+      "fullname": "Optifunity.Tests.MilestoneBTests.B_CallGraphCorpus(\"void Update(){ Helper(); } void Helper(){ Next(); } void Next(){ var a=new object(); }\",True)",
+      "result": "Passed",
+      "duration": "0.277630"
+    },
+    {
+      "fullname": "Optifunity.Tests.MilestoneBTests.B_CallGraphCorpus(\"void Update(){ Helper(); } void Helper(){ var a=new UnityEngine.Vector4(); }\",False)",
+      "result": "Passed",
+      "duration": "0.269100"
+    },
+    {
+      "fullname": "Optifunity.Tests.MilestoneBTests.B_CallGraphCorpus(\"void Update(){} void Helper(){ var a=new int[4]; }\",False)",
+      "result": "Passed",
+      "duration": "0.315414"
+    },
+    {
+      "fullname": "Optifunity.Tests.MilestoneBTests.B_CallGraphCorpus(\"void Update(){ Helper(); } void Helper(){ System.Action a=()=>{var b=new int[4];}; }\",False)",
+      "result": "Passed",
+      "duration": "0.272271"
+    },
+    {
+      "fullname": "Optifunity.Tests.MilestoneBTests.B_CallGraphCorpus(\"void Update(){ Helper(); } void Helper(){ Helper(); }\",False)",
+      "result": "Passed",
+      "duration": "0.335195"
+    },
+    {
+      "fullname": "Optifunity.Tests.MilestoneBTests.B_ComparisonRejectsDifferentContextOrInvalidData",
+      "result": "Passed",
+      "duration": "0.002862"
+    },
+    {
+      "fullname": "Optifunity.Tests.MilestoneBTests.B_EvidenceWindowAndOptionalMemoryProfilerMenu",
+      "result": "Passed",
+      "duration": "0.221287"
+    },
+    {
+      "fullname": "Optifunity.Tests.MilestoneBTests.B_InventorySubassetsDependenciesAndCancel",
+      "result": "Passed",
+      "duration": "0.151986"
+    },
+    {
+      "fullname": "Optifunity.Tests.MilestoneBTests.B_LoadingComparisonAndMemoryCaptureValidation",
+      "result": "Passed",
+      "duration": "0.003598"
+    },
+    {
+      "fullname": "Optifunity.Tests.MilestoneBTests.B_MemoryDiffIsSignedAndChecksContext",
+      "result": "Passed",
+      "duration": "0.002794"
+    },
+    {
+      "fullname": "Optifunity.Tests.MilestoneBTests.B_MissingProfilerFrameIsUnknown",
+      "result": "Passed",
+      "duration": "0.001742"
+    },
+    {
+      "fullname": "Optifunity.Tests.MilestoneBTests.B_Ownership(\"\",\"False\")",
+      "result": "Passed",
+      "duration": "0.281843"
+    },
+    {
+      "fullname": "Optifunity.Tests.MilestoneBTests.B_Ownership(\"void OnDestroy(){ E -= Handler; }\",\"True\")",
+      "result": "Passed",
+      "duration": "0.277505"
+    },
+    {
+      "fullname": "Optifunity.Tests.MilestoneBTests.B_PercentilesHitchAndMissingMetrics",
+      "result": "Passed",
+      "duration": "0.000591"
+    },
+    {
+      "fullname": "Optifunity.Tests.MilestoneBTests.B_RecorderRequiresExplicitScenario",
+      "result": "Passed",
+      "duration": "0.001069"
+    },
+    {
+      "fullname": "Optifunity.Tests.MilestoneBTests.B_RenderingPrefabUsageDoesNotModifyAsset",
+      "result": "Passed",
+      "duration": "0.160367"
+    },
+    {
+      "fullname": "Optifunity.Tests.ProjectContextTests.ActualAsmdefReferencesAndDefinesResolve",
+      "result": "Passed",
+      "duration": "0.306527"
+    },
+    {
+      "fullname": "Optifunity.Tests.ProjectContextTests.FixtureImportsHaveResolvableScripts",
+      "result": "Passed",
+      "duration": "0.000803"
+    },
+    {
+      "fullname": "Optifunity.Tests.ProjectContextTests.FixtureScanMetrics",
+      "result": "Passed",
+      "duration": "0.796459"
+    },
+    {
+      "fullname": "AddressableAssets.DocExampleCode.TestStub.RequiredTest",
+      "result": "Passed",
+      "duration": "0.000119"
+    }
+  ],
+  "compile_import_errors": []
+}

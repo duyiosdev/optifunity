@@ -1,0 +1,10 @@
+{
+  "result": "Passed",
+  "samples": 60,
+  "packed_entries": 2831,
+  "isEditor": false,
+  "graphicsApi": "Null",
+  "project": "DefaultCompany/Optifunity-A-20261013",
+  "buildId": "c0716a5e841e4c018e94794d7abb9447",
+  "scope": "Owned Windows headless fixture; data-flow validation only, not mobile or rendering performance acceptance"
+}

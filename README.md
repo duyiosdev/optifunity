@@ -40,6 +40,19 @@ Read-only endpoints provide status, active scene summary, selected profiler fram
 
 The fixture pins URP 17.0.4 and Test Framework 1.4.5. Roslyn dependencies, hashes and licenses are in `Editor/ThirdParty/Roslyn`. Regression tests are in `Tests/Editor`.
 
+## Milestone B evidence tools
+
+Open **Tools > Optifunity > Evidence and Benchmarks**, also linked from the Dashboard Build tab.
+
+- Inventory imported main/sub-assets and direct dependencies under Assets and optionally Packages. The latest BuildReport is separate, dated build evidence; serialized packed bytes are not runtime memory. Addressables 2.3.16 is optional: persisted settings roots are inspected without invoking the migration-capable default-settings getter. Bundle layouts and remote catalogs remain outside this adapter.
+- Inspect saved scenes/prefabs for Camera, Canvas/CanvasRenderer, particles, material/shader keywords and configured URP renderer features. These are usage/configuration records, not measured overdraw or final stripped shader variants.
+- Scan resolved helper call paths and event cleanup evidence. Traversal is bounded to static, same-compilation method bodies; dynamic dispatch and whole-program leak proof remain unsupported. Findings are advisory.
+- Read all captured Profiler threads (up to 256) and their top 20 inclusive markers. A per-thread sample cap is explicit. Concurrent thread times must not be summed into frame wall time.
+- Capture Editor object aggregates and signed type diffs; capture native .snap files separately. Open the optional Unity Memory Profiler (fixture: 1.1.11) to import and compare native/managed graphs. Aggregate diffs are not native heap diffs and do not prove leaks.
+- Add DeviceEvidenceRecorder explicitly in a measurement scene, configure scenario/target/warmup, call Begin and StopAndSave. It saves under Application.persistentDataPath. No recorder is injected automatically. Compare two JSON captures for frame-time percentiles, hitches, sampled memory peaks and named loading intervals. RSS/thermal data require a measured external source; missing values remain unknown.
+
+See [B acceptance](docs/MILESTONE_B_ACCEPTANCE.md) for test results and [device protocol](docs/DEVICE_BENCHMARK_PROTOCOL.md) before recording. The user has not yet supplied a game/device/scenario: **mobile before/after acceptance remains pending**. Windows fixture results do not satisfy it.
+
 ## Roadmap boundaries
 
-Milestone B covers full inventory/build dependencies, deeper lifetime analysis, multiple profiler threads, memory snapshots/diffs and repeatable low-end-device benchmarks. Milestone C covers verified preview/rollback fixes and an AI assistant using the same evidence and write policy. These are planned capabilities, not current features. See [upgrade plan](docs/UPGRADE_PLAN.md).
+Milestone B tooling is available within the documented scope above; full device acceptance and the listed unsupported contexts remain open. Milestone C covers verified preview/rollback fixes and an AI assistant using the same evidence and write policy. These are planned capabilities, not current features. See [upgrade plan](docs/UPGRADE_PLAN.md).

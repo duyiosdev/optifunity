@@ -1,7 +1,8 @@
 param(
     [Parameter(Mandatory=$true)][string]$UnityPath,
     [string]$ProjectPath,
-    [string]$PythonPath
+    [string]$PythonPath,
+    [switch]$ExtendedPackages
 )
 $ErrorActionPreference = 'Stop'
 if ($PythonPath) { $env:OPTIFUNITY_TEST_PYTHON = $PythonPath }
@@ -29,12 +30,17 @@ Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'Fixtures') | ForEach-Object
     New-Item -ItemType Directory -Force $destination | Out-Null
     Get-ChildItem -LiteralPath $_.FullName -File | Copy-Item -Destination $destination -Force
 }
+$dependencies = @{
+    'com.h.optifunity' = 'file:' + $repoRoot.Replace('\','/')
+    'com.unity.render-pipelines.universal' = '17.0.4'
+    'com.unity.test-framework' = '1.4.5'
+}
+if ($ExtendedPackages) {
+    $dependencies['com.unity.addressables'] = '2.3.16'
+    $dependencies['com.unity.memoryprofiler'] = '1.1.11'
+}
 $manifest = @{
-    dependencies = @{
-        'com.h.optifunity' = 'file:' + $repoRoot.Replace('\','/')
-        'com.unity.render-pipelines.universal' = '17.0.4'
-        'com.unity.test-framework' = '1.4.5'
-    }
+    dependencies = $dependencies
     testables = @('com.h.optifunity')
 } | ConvertTo-Json -Depth 5
 [IO.File]::WriteAllText("$ProjectPath/Packages/manifest.json", $manifest)

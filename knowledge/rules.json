@@ -155,6 +155,46 @@
       "requiredEvidence": "Successful read of all five UnityStats properties in Play Mode",
       "recommendation": "Measure CPU/GPU timings; do not diagnose bottlenecks from counts alone",
       "tests": "T08"
+    },
+    {
+      "revision": 1,
+      "verifiedAt": "2026-10-13",
+      "applicability": "Unity 6000.0.58f2 / URP 17.0.4 validation baseline; C# 9 and resolved compilation symbols",
+      "exclusions": "No device performance guarantee; unresolved symbols and unsupported contexts cannot produce confirmed conclusions",
+      "severity": "Info",
+      "evidenceLevel": "Advisory",
+      "tradeoffs": "Changing lifetime or storage can change behavior and memory retention; profile and review ownership",
+      "verificationSteps": "Run EditMode regression and confirm affected code path with target-device profiling",
+      "fixPolicy": "Manual only",
+      "ruleId": "code.callgraph",
+      "category": "Code",
+      "sources": [
+        "https://learn.microsoft.com/en-us/dotnet/standard/garbage-collection/fundamentals"
+      ],
+      "verificationStatus": "Advisory; bounded source analysis",
+      "requiredEvidence": "Resolved static helper call path; no dynamic dispatch, branch frequency or cross-assembly body inference",
+      "recommendation": "Review source path/ownership and confirm in a device capture",
+      "tests": "B_CallGraphCorpus,B_Ownership"
+    },
+    {
+      "revision": 1,
+      "verifiedAt": "2026-10-13",
+      "applicability": "Unity 6000.0.58f2 / URP 17.0.4 validation baseline; C# 9 and resolved compilation symbols",
+      "exclusions": "No device performance guarantee; unresolved symbols and unsupported contexts cannot produce confirmed conclusions",
+      "severity": "Info",
+      "evidenceLevel": "Advisory",
+      "tradeoffs": "Changing lifetime or storage can change behavior and memory retention; profile and review ownership",
+      "verificationSteps": "Run EditMode regression and confirm affected code path with target-device profiling",
+      "fixPolicy": "Manual only",
+      "ruleId": "code.ownership",
+      "category": "Code",
+      "sources": [
+        "https://learn.microsoft.com/en-us/dotnet/standard/garbage-collection/fundamentals"
+      ],
+      "verificationStatus": "Advisory; bounded source analysis",
+      "requiredEvidence": "Resolved publisher/event and handler identity; matching removal is syntactic evidence, not cleanup reachability",
+      "recommendation": "Review source path/ownership and confirm in a device capture",
+      "tests": "B_CallGraphCorpus,B_Ownership"
     }
   ]
 }

@@ -1,0 +1,405 @@
+{
+  "scope": "Editor object type aggregates only; growth is not proof of a leak. Native .snap graph comparison requires Unity Memory Profiler.",
+  "types": [
+    {
+      "type": "Unity.Burst.BurstCompiler+DomainReloadStateSingleton",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.Android.AndroidExtensionData",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.Android.TargetScanWorker+PersistentData",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.AudioManager",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.Build.Profile.BuildProfile",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.Build.Profile.BuildProfileContext",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.BuildReportRestService",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.EditorBuildSettings",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.EditorSettings",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.EditorUserBuildSettings",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.EditorUserSettings",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.InputManager",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.LightingDataAsset",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.LightmapParameters",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.MemorySettings",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.MonoManager",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.MonoScript",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.PackageManager.UI.Internal.PackageManagerProjectSettings",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.PackageManager.UI.Internal.PlayModeDownloadState",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.PackageManager.UI.Internal.RegistryInfoDraftData",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.PackageManager.UI.Internal.RegistryInfoOriginalData",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.PackageManager.UI.Internal.ServicesContainer",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.Physics2DSettings",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.PlayerSettings",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.Presets.PresetManager",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.SceneManagement.MainStage",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.SceneManagement.StageNavigationManager",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.SceneVisibilityState",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.TagManager",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.TestTools.TestRunner.Api.CallbacksHolder",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.TestTools.TestRunner.CommandLineTest.RunData",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.TestTools.TestRunner.TestListCacheData",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.TestTools.TestRunner.TestRun.TestJobDataHolder",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.TimeManager",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.UnityConnectSettings",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.VersionControlSettings",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEditor.VFXManager",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.AssetBundle",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.ComputeShader",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Cubemap",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.CubemapArray",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Font",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.GameObject",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.GUISkin",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.LightingSettings",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.LightmapSettings",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Material",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Mesh",
+      "byteDelta": 1456,
+      "countDelta": 1
+    },
+    {
+      "type": "UnityEngine.Object",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.QualitySettings",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Rendering.GraphicsSettings",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Rendering.ProbeVolumesOptions",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Rendering.RayTracingShader",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Rendering.Universal.Bloom",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Rendering.Universal.ChannelMixer",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Rendering.Universal.ChromaticAberration",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Rendering.Universal.ColorAdjustments",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Rendering.Universal.ColorCurves",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Rendering.Universal.ColorLookup",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Rendering.Universal.DepthOfField",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Rendering.Universal.FilmGrain",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Rendering.Universal.LensDistortion",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Rendering.Universal.LiftGammaGain",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Rendering.Universal.MotionBlur",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Rendering.Universal.PaniniProjection",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Rendering.Universal.ScreenSpaceLensFlare",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Rendering.Universal.ShadowsMidtonesHighlights",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Rendering.Universal.SplitToning",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Rendering.Universal.Tonemapping",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Rendering.Universal.UniversalRenderPipelineGlobalSettings",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Rendering.Universal.Vignette",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Rendering.Universal.WhiteBalance",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Rendering.VolumeProfile",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.RenderSettings",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Shader",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.ShaderVariantCollection",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Texture2D",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Texture2DArray",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Texture3D",
+      "byteDelta": 0,
+      "countDelta": 0
+    },
+    {
+      "type": "UnityEngine.Transform",
+      "byteDelta": 0,
+      "countDelta": 0
+    }
+  ]
+}

@@ -227,6 +227,8 @@ Mỗi đợt giao thay đổi nhỏ, kết quả kiểm tra và giới hạn cò
 
 ## 9. Lộ trình tiếp theo: B và C
 
+**Cập nhật 13/10/2026:** người dùng đã yêu cầu triển khai B và xác nhận chưa có game/thiết bị. Công cụ và fixture B được triển khai; xem [nghiệm thu B](MILESTONE_B_ACCEPTANCE.md). Benchmark mobile và các giới hạn nghiệm thu còn mở; không đánh dấu toàn bộ B hoàn tất. C chưa triển khai.
+
 | Mốc | Hạng mục | Đầu ra/điều kiện nghiệm thu dự kiến |
 |---|---|---|
 | B | Inventory project và build | Scene/prefab/sub-assets/Packages/Addressables theo scope được khai báo; đối chiếu BuildReport thay vì chỉ suy đoán dependency |

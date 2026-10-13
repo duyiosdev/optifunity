@@ -16,7 +16,7 @@ namespace Optifunity.Editor.Module1
         private static readonly Dictionary<string, CSharpCompilation> Compilations = new Dictionary<string, CSharpCompilation>();
         public static void Clear() { Models.Clear(); Compilations.Clear(); }
 
-        private static SemanticModel Model(string path, string source)
+        internal static SemanticModel Model(string path, string source)
         {
             string fullPath = Path.GetFullPath(path);
             string key = fullPath + "\n" + source;

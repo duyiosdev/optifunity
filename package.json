@@ -2,7 +2,7 @@
   "name": "com.h.optifunity",
   "version": "1.0.0",
   "displayName": "Optifunity - URP Performance Analyzer",
-  "description": "Unity Editor performance evidence and advisory audits for URP. Semantic C# checks, asset/settings inspection and main-thread profiler review. Device benchmarking and memory snapshot comparison are roadmap features; automatic mutation is disabled.",
+  "description": "Unity Editor performance evidence: semantic C# checks, scoped asset/build/rendering inventory, multi-thread profiler evidence, memory capture and opt-in benchmark recording. Device acceptance requires real measurements; automatic mutation is disabled.",
   "unity": "6000.0",
   "unityRelease": "58f2",
   "documentationUrl": "https://github.com/duyiosdev/optifunity",

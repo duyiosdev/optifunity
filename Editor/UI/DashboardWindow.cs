@@ -477,12 +477,13 @@ namespace Optifunity.Editor.UI
 
         private void DrawBuildAssetTab()
         {
-            GUILayout.Label("📦 Trích xuất tài nguyên Build Cuối (Final Build Assets)", OptifunityStyles.StyleHeader);
+            GUILayout.Label("📦 Tài nguyên có thể được đưa vào build (dependency estimate)", OptifunityStyles.StyleHeader);
             GUILayout.Space(5);
             GUILayout.Label("Phân tích dependency từ EditorBuildSettings, Resources và GraphicsSettings để tổng hợp Material/Shader có khả năng được include vào build (không phải danh sách đóng gói cuối sau stripping).",
                 OptifunityStyles.StyleIssueDesc);
             GUILayout.Space(10);
 
+            if (GUILayout.Button("Inventory / BuildReport / Runtime evidence")) EvidenceWindow.Open();
             if (GUILayout.Button("🔍 Scan Build Assets", GUILayout.Width(150), GUILayout.Height(30)))
             {
                 _buildResults = BuildAssetScanner.GetBuildShadersAndMaterials();

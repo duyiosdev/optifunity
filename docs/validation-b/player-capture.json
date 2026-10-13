@@ -1,0 +1,502 @@
+{
+  "schemaVersion": 1,
+  "sessionId": "b155f55ddfbb4426a2ca8ab78bc3b6cd",
+  "scenario": "Disposable Windows fixture, not mobile acceptance",
+  "variant": "fixture",
+  "device": "To Be Filled By O.E.M. (To Be Filled By O.E.M.)",
+  "operatingSystem": "Windows 10  (10.0.19045) 64bit",
+  "unityVersion": "6000.0.58f2",
+  "project": "DefaultCompany/Optifunity-A-20261013",
+  "buildId": "c0716a5e841e4c018e94794d7abb9447",
+  "graphicsApi": "Null",
+  "quality": "Ultra",
+  "capturedAt": "2026-10-13T10:00:50.6836926Z",
+  "isEditor": false,
+  "targetFps": 30,
+  "warmupSeconds": 0.0,
+  "memoryBudgetBytes": 0,
+  "memoryScope": "Unity allocated memory is not process RSS; unavailable resident/thermal metrics use -1",
+  "samples": [
+    {
+      "elapsedSeconds": 0.010910899999999946,
+      "frameMs": 10.910900115966797,
+      "unityAllocatedBytes": 39981107,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.012740399999999985,
+      "frameMs": 1.8294999599456787,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.012793300000000007,
+      "frameMs": 0.05290000140666962,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.012836299999999912,
+      "frameMs": 0.0430000014603138,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.012876999999999916,
+      "frameMs": 0.040699999779462814,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.01291869999999995,
+      "frameMs": 0.04170000180602074,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.012957999999999914,
+      "frameMs": 0.03929999843239784,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.012997499999999995,
+      "frameMs": 0.039500001817941666,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.013036700000000012,
+      "frameMs": 0.03920000046491623,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.013078799999999946,
+      "frameMs": 0.042100001126527786,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.013117900000000016,
+      "frameMs": 0.03909999877214432,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.013156799999999969,
+      "frameMs": 0.03889999911189079,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.013195599999999974,
+      "frameMs": 0.03880000114440918,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.013234299999999921,
+      "frameMs": 0.03869999945163727,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.013273199999999985,
+      "frameMs": 0.03889999911189079,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.013312099999999938,
+      "frameMs": 0.03889999911189079,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.013351099999999949,
+      "frameMs": 0.039000000804662704,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.013392099999999907,
+      "frameMs": 0.04100000113248825,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.013431199999999976,
+      "frameMs": 0.03909999877214432,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.013469899999999924,
+      "frameMs": 0.03869999945163727,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.01350960000000001,
+      "frameMs": 0.03970000147819519,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.013548000000000004,
+      "frameMs": 0.03840000182390213,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.013586899999999957,
+      "frameMs": 0.03889999911189079,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.013625600000000015,
+      "frameMs": 0.03869999945163727,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.013664299999999963,
+      "frameMs": 0.03869999945163727,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.013703099999999968,
+      "frameMs": 0.03880000114440918,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.01374159999999991,
+      "frameMs": 0.03849999979138374,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.013780099999999962,
+      "frameMs": 0.03849999979138374,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.013818999999999915,
+      "frameMs": 0.03889999911189079,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.013857399999999909,
+      "frameMs": 0.03840000182390213,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.013895999999999908,
+      "frameMs": 0.038600001484155655,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.01393449999999996,
+      "frameMs": 0.03849999979138374,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.013973299999999966,
+      "frameMs": 0.03880000114440918,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.014015,
+      "frameMs": 0.04170000180602074,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.014053800000000005,
+      "frameMs": 0.03880000114440918,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.0140922,
+      "frameMs": 0.03840000182390213,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.014130899999999946,
+      "frameMs": 0.03869999945163727,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.014169099999999935,
+      "frameMs": 0.03819999843835831,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.014207499999999929,
+      "frameMs": 0.03840000182390213,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.014245999999999981,
+      "frameMs": 0.03849999979138374,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.014285699999999957,
+      "frameMs": 0.03970000147819519,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.01432420000000001,
+      "frameMs": 0.03849999979138374,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.01436269999999995,
+      "frameMs": 0.03849999979138374,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.014400899999999939,
+      "frameMs": 0.03819999843835831,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.014439399999999991,
+      "frameMs": 0.03849999979138374,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.014478400000000002,
+      "frameMs": 0.039000000804662704,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.014518399999999931,
+      "frameMs": 0.03999999910593033,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.01455659999999992,
+      "frameMs": 0.03819999843835831,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.014594600000000013,
+      "frameMs": 0.03799999877810478,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.014632800000000001,
+      "frameMs": 0.03819999843835831,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.014672899999999989,
+      "frameMs": 0.04010000079870224,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.01471139999999993,
+      "frameMs": 0.03849999979138374,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.014749699999999977,
+      "frameMs": 0.03830000013113022,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.01478809999999997,
+      "frameMs": 0.03840000182390213,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.014826399999999906,
+      "frameMs": 0.03830000013113022,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.014864699999999953,
+      "frameMs": 0.03830000013113022,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.014902899999999941,
+      "frameMs": 0.03819999843835831,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.014940999999999982,
+      "frameMs": 0.038100000470876694,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.014979399999999976,
+      "frameMs": 0.03840000182390213,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    },
+    {
+      "elapsedSeconds": 0.015017599999999964,
+      "frameMs": 0.03819999843835831,
+      "unityAllocatedBytes": 39990751,
+      "residentBytes": -1,
+      "thermalCelsius": -1.0,
+      "externalMetricSource": ""
+    }
+  ],
+  "loading": []
+}

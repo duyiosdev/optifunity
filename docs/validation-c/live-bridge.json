@@ -1,0 +1,11 @@
+{
+  "result": "Passed",
+  "checks": [
+    "Two simultaneous Editors have distinct endpoints and identities",
+    "Both Editors reject cross-project, same-path wrong-instance, wrong-token and mutation requests",
+    "Native script reload waits for Editor readiness, rotates identity, serves sourced assistant context, rejects old credentials and preserves the other Editor",
+    "Both normal shutdowns remove discovery descriptors"
+  ],
+  "same_path_note": "Wrong-instance request simulated on one path; Unity prevents opening the same project twice.",
+  "tested_at_utc": "2026-10-14T02:20:17Z"
+}

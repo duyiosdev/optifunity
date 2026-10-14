@@ -85,12 +85,22 @@ def main():
         (projects[0] / "bridge-reload.txt").write_text("reload")
         def reloaded():
             fresh = descriptor(projects[0], processes[0].pid)
-            return fresh if fresh and fresh["instanceId"] != old["instanceId"] else None
+            return fresh if fresh and fresh["instanceId"] != old["instanceId"] and (projects[0] / "bridge-ready.txt").exists() else None
         fresh = wait_for(reloaded)
-        assert request(fresh)[0] == 200
+        def responsive():
+            try:
+                status, data = request(fresh)
+                return status == 200 and data["instanceId"] == fresh["instanceId"]
+            except (TimeoutError, urllib.error.URLError):
+                return False
+        wait_for(responsive, seconds=40)
+        status, context = request(fresh, path="/assistant-context")
+        assert status == 200 and context["assistant"]["instanceId"] == fresh["instanceId"]
+        assert context["assistant"]["project"] == fresh["projectPath"]
+        assert any(rule["ruleId"] == "code.boxing" for rule in context["assistant"]["knowledge"])
         assert request(fresh, old)[0] == 403
         assert request(connections[1])[0] == 200
-        checks.append("Native script reload rotates identity, rejects old credentials and preserves the other Editor")
+        checks.append("Native script reload waits for Editor readiness, rotates identity, serves sourced assistant context, rejects old credentials and preserves the other Editor")
     finally:
         for project, process in zip(projects, processes):
             if process.poll() is None:

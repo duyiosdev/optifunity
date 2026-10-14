@@ -227,7 +227,7 @@ Mỗi đợt giao thay đổi nhỏ, kết quả kiểm tra và giới hạn cò
 
 ## 9. Lộ trình tiếp theo: B và C
 
-**Cập nhật 13/10/2026:** người dùng đã yêu cầu triển khai B và xác nhận chưa có game/thiết bị. Công cụ và fixture B được triển khai; xem [nghiệm thu B](MILESTONE_B_ACCEPTANCE.md). Benchmark mobile và các giới hạn nghiệm thu còn mở; không đánh dấu toàn bộ B hoàn tất. C chưa triển khai.
+**Cập nhật 13/10/2026:** người dùng đã yêu cầu triển khai B và xác nhận chưa có game/thiết bị. Công cụ và fixture B được triển khai; xem [nghiệm thu B](MILESTONE_B_ACCEPTANCE.md). Benchmark mobile và các giới hạn nghiệm thu còn mở; không đánh dấu toàn bộ B hoàn tất. C đã được yêu cầu triển khai ngày 14/10/2026; xem [nghiệm thu C](MILESTONE_C_ACCEPTANCE.md) cho phạm vi công cụ và giới hạn còn mở.
 
 | Mốc | Hạng mục | Đầu ra/điều kiện nghiệm thu dự kiến |
 |---|---|---|

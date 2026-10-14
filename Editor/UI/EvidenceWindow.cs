@@ -18,11 +18,15 @@ namespace Optifunity.Editor.UI
         private string display = "Choose an evidence source. Missing data is not a pass.";
         private Vector2 scroll;
         private MemoryEvidence previousMemory;
+        private string lastKind;
         [MenuItem("Tools/Optifunity/Evidence and Benchmarks", priority = 60)]
         public static void Open() => GetWindow<EvidenceWindow>("Optifunity Evidence");
         private void OnGUI()
         {
             EditorGUILayout.HelpBox("Evidence has an explicit scope. Inventory is not build inclusion; Editor measurements are not low-end-device benchmarks. Automatic fixes remain disabled.", MessageType.Info);
+            if (GUILayout.Button("Optimization review / controlled changes / AI context")) OptimizationWindow.Open();
+            if (GUILayout.Button("Share displayed capture with connected AI (this session)"))
+            { try { Core.AssistantEvidence.Publish(lastKind, display); } catch (Exception ex) { display = ex.Message; } }
             includePackages = EditorGUILayout.Toggle("Include Packages", includePackages);
             if (GUILayout.Button("Inventory and latest BuildReport")) Run(() => ProjectInventoryScanner.Scan(includePackages, Cancel));
             if (GUILayout.Button("Rendering usage: saved scenes and prefabs")) Run(() => RenderingUsageScanner.Scan(
@@ -68,7 +72,7 @@ namespace Optifunity.Editor.UI
         private static bool Cancel() => EditorUtility.DisplayCancelableProgressBar("Optifunity evidence", "Inspecting selected scope", 0);
         private void Run(Func<object> read)
         {
-            try { display = JsonUtility.ToJson(read(), true); }
+            try { var result = read(); lastKind = result.GetType().Name; display = JsonUtility.ToJson(result, true); }
             catch (Exception ex) { display = "Incomplete: " + ex.Message; }
             finally { EditorUtility.ClearProgressBar(); }
         }

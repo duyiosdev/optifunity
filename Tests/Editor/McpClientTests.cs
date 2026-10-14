@@ -51,6 +51,14 @@ namespace Optifunity.Tests
                     Assert.That(line.Result, Does.Contain(identity.instanceId));
                     Assert.That(line.Result, Does.Not.Contain("\"isError\":true"));
                     Assert.That(line.Result, Does.Not.Contain("\"isError\": true"));
+                    process.StandardInput.WriteLine("{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"tools/call\",\"params\":{\"name\":\"unity_get_assistant_context\",\"arguments\":{}}}");
+                    process.StandardInput.Flush();
+                    line = process.StandardOutput.ReadLineAsync(); deadline = EditorApplication.timeSinceStartup + 12;
+                    while (!line.IsCompleted && EditorApplication.timeSinceStartup < deadline) yield return null;
+                    Assert.That(line.IsCompleted, "Assistant context timed out");
+                    Assert.That(line.Result, Does.Contain(identity.instanceId));
+                    Assert.That(line.Result, Does.Contain("code.boxing"));
+                    Assert.That(line.Result, Does.Contain("writePolicy"));
                     process.StandardInput.WriteLine("{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"unity_apply_asset_optimization\",\"arguments\":{\"assetPath\":\"Assets/never-write\",\"type\":\"mesh\"}}}");
                     process.StandardInput.Flush();
                     line = process.StandardOutput.ReadLineAsync(); deadline = EditorApplication.timeSinceStartup + 12;

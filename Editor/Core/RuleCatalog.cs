@@ -32,6 +32,7 @@ namespace Optifunity.Editor.Core
                 if (!Uri.TryCreate(source, UriKind.Absolute, out var uri) || uri.Scheme != "https")
                     throw new InvalidDataException("Invalid source URL.");
         }
+        public static KnowledgeRule[] All() { Get("legacy.unverified"); return new List<KnowledgeRule>(rules.Values).ToArray(); }
         public static KnowledgeRule Get(string id)
         {
             if (rules == null)

@@ -20,7 +20,7 @@ Assets, loaded scenes and selected settings are not the entire runtime/build dep
 
 ## Safety and knowledge
 
-**Automatic asset/shader mutation is disabled**, including import hooks, report/dashboard fix actions and the MCP optimization endpoint. Suggestions require developer review of usage, quality and runtime behavior.
+**Automatic asset/shader mutation remains disabled**, including import hooks, report/dashboard fix actions and the MCP optimization endpoint. Milestone C adds a separate, explicitly approved Unity UI transaction for platform Texture Max Size reductions, with preview, backup, verification and guarded rollback. Suggestions require developer review of usage, quality and runtime behavior.
 
 [Rule catalog](knowledge/rules.json) records sources, applicability, required evidence, tradeoffs and verification. Legacy detectors without individually verified mappings are explicitly advisory and do not reduce the score. [Reference inventory](docs/REFERENCE_AUDIT.md) retains the 60 original sources and their verification status; inventory does not mean every claim is verified.
 
@@ -53,6 +53,16 @@ Open **Tools > Optifunity > Evidence and Benchmarks**, also linked from the Dash
 
 See [B acceptance](docs/MILESTONE_B_ACCEPTANCE.md) for test results and [device protocol](docs/DEVICE_BENCHMARK_PROTOCOL.md) before recording. The user has not yet supplied a game/device/scenario: **mobile before/after acceptance remains pending**. Windows fixture results do not satisfy it.
 
+## Milestone C optimization review
+
+Open **Tools > Optifunity > Optimization Review**. Review evidence-first priorities, estimated impact/cost, sources and tradeoffs; save scoped baselines and reasoned suppression without deleting findings or changing compliance scores.
+
+The controlled change workflow supports Default 2D textures under Assets only: preview Android/iPhone Max Size reduction, review usage/quality, explicitly apply, then verify visual/device behavior. Source/meta hashes and GUID checks reject stale previews; rollback refuses to overwrite newer edits. Metadata backups and atomic transaction journals are under Library/OptifunityChanges, so deleting Library removes rollback history. Interrupted transactions remain visible for manual recovery; power-loss recovery is not certified.
+
+Both MCP clients expose **unity_get_assistant_context** with the authenticated project/instance, scoped findings, catalog sources, review decisions and change history. Share B captures explicitly through Evidence and Benchmarks; session captures clear on reload. This is an evidence interface for your chosen AI host, not an embedded model or automatic cloud upload. MCP writes remain disabled.
+
+See [C workflow](docs/OPTIMIZATION_REVIEW_WORKFLOW.md) and [C acceptance](docs/MILESTONE_C_ACCEPTANCE.md). Technical import verification does not certify texture quality or device performance; AI response quality still depends on the connected model.
+
 ## Roadmap boundaries
 
-Milestone B tooling is available within the documented scope above; full device acceptance and the listed unsupported contexts remain open. Milestone C covers verified preview/rollback fixes and an AI assistant using the same evidence and write policy. These are planned capabilities, not current features. See [upgrade plan](docs/UPGRADE_PLAN.md).
+Milestone B tooling is available within the documented scope above; full device acceptance and the listed unsupported contexts remain open. Milestone C now supplies the bounded workflow above. Other automatic fix families, embedded AI providers and full mobile acceptance remain outside the implemented scope. See [upgrade plan](docs/UPGRADE_PLAN.md).

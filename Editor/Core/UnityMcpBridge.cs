@@ -23,6 +23,7 @@ namespace Optifunity.Editor.Core
         }
         [Serializable] private class Payload
         {
+            public AssistantContext assistant;
             public string error, status, project, projectPath, instanceId, unityVersion, scope, sceneName, path;
             public string activeRenderPipeline, editorPlatform, buildTarget, graphicsApi;
             public int rendererCount, estimatedTriangles, estimatedVertices, unreadableMeshes, frameIndex;
@@ -112,7 +113,7 @@ namespace Optifunity.Editor.Core
                 { Send(context, 403, JsonUtility.ToJson(new Payload { error = "Automatic mutation disabled: usage and rollback preconditions are unverified." })); return; }
                 if (request.HttpMethod != "GET")
                 { Send(context, 405, JsonUtility.ToJson(new Payload { error = "Read-only GET endpoints." })); return; }
-                if (path != "/status" && path != "/scene" && path != "/profiler" && path != "/project-settings")
+                if (path != "/status" && path != "/scene" && path != "/profiler" && path != "/project-settings" && path != "/assistant-context")
                 { Send(context, 404, JsonUtility.ToJson(new Payload { error = "Unknown endpoint." })); return; }
                 if (Queue.Count >= 64) { Send(context, 429, "{\"error\":\"Bridge queue full.\"}"); return; }
                 var pending = new Pending { Path = path, Deadline = DateTime.UtcNow.AddSeconds(4) };
@@ -143,7 +144,8 @@ namespace Optifunity.Editor.Core
         private static Payload Read(string path)
         {
             var payload = new Payload { status = "ok", project = Application.productName, projectPath = connection.projectPath, instanceId = connection.instanceId, unityVersion = Application.unityVersion };
-            if (path == "/scene")
+            if (path == "/assistant-context") payload.assistant = AssistantEvidence.Read(connection.instanceId);
+            else if (path == "/scene")
             {
                 var scene = SceneManager.GetActiveScene();
                 payload.scope = "Active scene; includes inactive renderers; geometry is referenced mesh counts, not rendered frame counts.";

@@ -83,10 +83,15 @@ namespace Optifunity.Editor.Core
             try
             {
                 var importer = Importer(plan.assetPath); var settings = importer.GetPlatformTextureSettings(plan.platform);
+                if (!settings.overridden)
+                {
+                    settings = importer.GetDefaultPlatformTextureSettings();
+                    settings.name = plan.platform;
+                }
                 settings.overridden = true; settings.maxTextureSize = plan.afterSize;
                 importer.SetPlatformTextureSettings(settings); importer.SaveAndReimport();
                 var actual = Importer(plan.assetPath).GetPlatformTextureSettings(plan.platform);
-                if (!actual.overridden || actual.maxTextureSize != plan.afterSize || FileHash(plan.assetPath) != plan.sourceHash)
+                if (JsonUtility.ToJson(actual) != JsonUtility.ToJson(settings) || FileHash(plan.assetPath) != plan.sourceHash)
                     throw new InvalidOperationException("Post-import verification failed.");
                 plan.metaAfterHash = FileHash(plan.assetPath + ".meta"); plan.status = "Applied; visual/device verification pending"; Save(plan); return plan;
             }

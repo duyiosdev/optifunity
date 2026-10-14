@@ -41,7 +41,8 @@ namespace Optifunity.Editor.Core
         public string         Title;
         public string         Description;
         public string         AssetPath;       // Đường dẫn asset liên quan (nếu có)
-        public string         CodeLocation;    // File:Line cho code issues
+        public string         CodeLocation;    // File:Line:Column cho code issues
+        public string         FindingIdentity; // Distinguishes separate static paths at the same source location.
         public string         FixSuggestion;   // Hướng dẫn khắc phục
         public bool           CanAutoFix { get => false; set { } }      // Có thể tự động sửa không
         public string         AutoFixLabel;    // Nhãn nút Auto-Fix

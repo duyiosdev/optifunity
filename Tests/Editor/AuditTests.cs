@@ -20,6 +20,13 @@ namespace Optifunity.Tests
         [TestCase("void Update()\n{\nvar x = new int[4];\n}")]
         public void T01_T02_ArrayAllocation(string method) =>
             Assert.That(GCAllocAnalyzer.Analyze("Fixture.cs", Source(method)).Count(i => i.RuleId == "code.allocation"), Is.EqualTo(1));
+        [Test] public void SeparateAllocationsOnOneLineKeepSeparateReviewKeys()
+        {
+            var issues = GCAllocAnalyzer.Analyze("Fixture.cs", Source("void Update() { var a=new int[1]; var b=new int[2]; }"))
+                .Where(i => i.RuleId == "code.allocation").ToArray();
+            Assert.That(issues.Length, Is.EqualTo(2));
+            Assert.That(issues.Select(OptimizationReviewStore.Key).Distinct().Count(), Is.EqualTo(2));
+        }
         [Test] public void T02_Vector4DoesNotAllocate() =>
             Assert.That(GCAllocAnalyzer.Analyze("Fixture.cs", Source("void Update() { var x = new Vector4(); }")), Is.Empty);
         [TestCase("string value = \"s\"; object x = (object)value;", 0)]

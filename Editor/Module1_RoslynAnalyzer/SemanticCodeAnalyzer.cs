@@ -26,8 +26,12 @@ namespace Optifunity.Editor.Module1
             if (assembly != null && Compilations.TryGetValue(assembly.name, out var existing))
             {
                 var existingTree = existing.SyntaxTrees.FirstOrDefault(t => t.FilePath == fullPath);
-                if (existingTree != null && existingTree.GetText().ToString() == source)
-                    return existing.GetSemanticModel(existingTree);
+                if (existingTree != null && existingTree.GetText().ToString().TrimEnd('\n') == source.TrimEnd('\n'))
+                {
+                    var reused = existing.GetSemanticModel(existingTree);
+                    Models.Clear(); Models[key] = reused;
+                    return reused;
+                }
             }
             var options = new CSharpParseOptions(LanguageVersion.CSharp9,
                 preprocessorSymbols: assembly?.defines ?? Array.Empty<string>());
@@ -80,7 +84,7 @@ namespace Optifunity.Editor.Module1
                 result.Add(new PerformanceIssue { RuleId = id, EvidenceLevel = advisory ? "Advisory" : "Confirmed static operation",
                     Severity = advisory ? IssueSeverity.Info : IssueSeverity.Warning, Title = title,
                     Description = description, FixSuggestion = fix, AssetPath = path,
-                    CodeLocation = path + ":L" + (node.GetLocation().GetLineSpan().StartLinePosition.Line + 1) });
+                    CodeLocation = Location(path, node) });
             }
             foreach (var node in root.DescendantNodes())
             {
@@ -121,6 +125,12 @@ namespace Optifunity.Editor.Module1
                 }
             }
             return result;
+        }
+
+        internal static string Location(string path, SyntaxNode node)
+        {
+            var start = node.GetLocation().GetLineSpan().StartLinePosition;
+            return path + ":L" + (start.Line + 1) + ":C" + (start.Character + 1);
         }
 
         private static bool InGameplayMethod(SyntaxNode node, SemanticModel model)

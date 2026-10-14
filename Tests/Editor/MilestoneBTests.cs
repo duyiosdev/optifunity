@@ -30,6 +30,15 @@ namespace Optifunity.Tests
             Assert.That(issues.All(i => i.EvidenceLevel == "Advisory"), Is.True);
             SemanticCodeAnalyzer.Clear();
         }
+        [Test] public void B_DifferentCallPathsKeepSeparateReviewKeys()
+        {
+            SemanticCodeAnalyzer.Clear();
+            var issues = CallGraphAnalyzer.Analyze("BGraph.cs",
+                "class BGraph:UnityEngine.MonoBehaviour { void Update(){ One(); } void LateUpdate(){ Two(); } void One(){ Shared(); } void Two(){ Shared(); } void Shared(){ var a=new int[1]; } }")
+                .Where(i => i.RuleId == "code.callgraph").ToArray();
+            Assert.That(issues.Length, Is.EqualTo(2));
+            Assert.That(issues.Select(Optifunity.Editor.Core.OptimizationReviewStore.Key).Distinct().Count(), Is.EqualTo(2));
+        }
         [TestCase("", "False")]
         [TestCase("void OnDestroy(){ E -= Handler; }", "True")]
         public void B_Ownership(string cleanup, string expected)
@@ -139,6 +148,18 @@ namespace Optifunity.Tests
             Assert.Throws<ArgumentException>(() => DeviceCaptureAnalysis.Summarize(after));
             after = Capture(); after.samples[0].residentBytes = 1000;
             Assert.Throws<ArgumentException>(() => DeviceCaptureAnalysis.Summarize(after));
+        }
+        [Test] public void B_ComparisonExportPreservesBothCaptureContexts()
+        {
+            var before = Capture(); before.sessionId = "before"; before.variant = "baseline"; before.buildId = "build-1"; before.capturedAt = "2026-10-14T00:00:00Z";
+            var after = Capture(); after.sessionId = "after"; after.variant = "candidate"; after.buildId = "build-2"; after.capturedAt = "2026-10-14T01:00:00Z";
+            var exported = JsonUtility.ToJson(DeviceCaptureAnalysis.Compare(before, after));
+            Assert.That(exported, Does.Contain("\"beforeContext\""));
+            Assert.That(exported, Does.Contain("\"afterContext\""));
+            Assert.That(exported, Does.Contain("build-1"));
+            Assert.That(exported, Does.Contain("build-2"));
+            Assert.That(exported, Does.Contain("\"project\":\"test\""));
+            Assert.That(exported, Does.Contain("\"device\":\"simulated\""));
         }
         [Test] public void B_BudgetRequiresResidentEvidence()
         {

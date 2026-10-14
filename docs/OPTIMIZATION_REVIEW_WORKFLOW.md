@@ -4,7 +4,7 @@ Mở **Tools → Optifunity → Optimization Review** sau khi quét report. Th�
 
 ## Baseline và suppression
 
-Đặt baseline từ report đã hoàn tất trong phạm vi quét. Baseline lưu thời điểm, coverage và fingerprint của findings. Fingerprint gồm rule/module/path/location/title: thay đổi dòng code có thể tạo finding mới. Finding không xuất hiện ở report sau chỉ được ghi absent, chưa được coi đã sửa.
+Đặt baseline từ report đã hoàn tất trong phạm vi quét. Baseline lưu thời điểm, coverage và fingerprint của findings. Fingerprint gồm rule/module/path/location/title và call path khi có. Vị trí code giờ ghi cả dòng và cột để hai phép cấp phát cùng dòng có quyết định riêng; các review decision cũ cho code có thể cần chọn lại sau khi quét. Finding không xuất hiện ở report sau chỉ được ghi absent, chưa được coi đã sửa.
 
 Chọn finding, ghi lý do, cost (1–3), impact (0 nghĩa chưa biết, 1–3 là ước lượng) và trạng thái suppression. Suppression vẫn hiển thị với lý do; không xóa issue, không làm tăng điểm compliance gốc. Dữ liệu review nằm tại `ProjectSettings/OptifunityReview.json`, ràng buộc project path. Sao chép project sang path khác cần review lại state; không âm thầm áp quyết định của project cũ.
 

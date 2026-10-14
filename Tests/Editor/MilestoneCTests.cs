@@ -63,6 +63,28 @@ namespace Optifunity.Tests
             Assert.That(File.ReadAllBytes(texturePath + ".meta"), Is.EqualTo(meta));
             Assert.Throws<InvalidOperationException>(() => VerifiedTextureChange.Apply(plan.id, true));
         }
+        [Test] public void C_DisabledPlatformOverrideCopiesEffectiveDefault()
+        {
+            var importer = (TextureImporter)AssetImporter.GetAtPath(texturePath);
+            var defaults = importer.GetDefaultPlatformTextureSettings();
+            defaults.textureCompression = TextureImporterCompression.Compressed;
+            importer.SetPlatformTextureSettings(defaults);
+            var dormant = importer.GetPlatformTextureSettings("Android");
+            dormant.overridden = false;
+            dormant.format = TextureImporterFormat.RGBA32;
+            dormant.textureCompression = TextureImporterCompression.Uncompressed;
+            importer.SetPlatformTextureSettings(dormant);
+            importer.SaveAndReimport();
+            defaults = importer.GetDefaultPlatformTextureSettings();
+            Assert.That(defaults.textureCompression, Is.EqualTo(TextureImporterCompression.Compressed));
+            var plan = VerifiedTextureChange.Preview(texturePath, "Android", 256);
+            VerifiedTextureChange.Apply(plan.id, true);
+            var applied = ((TextureImporter)AssetImporter.GetAtPath(texturePath)).GetPlatformTextureSettings("Android");
+            Assert.That(applied.format, Is.EqualTo(defaults.format));
+            Assert.That(applied.textureCompression, Is.EqualTo(defaults.textureCompression));
+            Assert.That(applied.maxTextureSize, Is.EqualTo(256));
+            Assert.That(VerifiedTextureChange.Rollback(plan.id).status, Is.EqualTo("Rolled back"));
+        }
         [Test] public void C_StalePreviewAndChangedRollbackRefuseWrites()
         {
             var plan = VerifiedTextureChange.Preview(texturePath,"Android",256);

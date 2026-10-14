@@ -92,9 +92,25 @@ namespace Optifunity.Runtime
         public float peakThermalCelsius = -1;
         public string scope, memoryBudgetStatus;
     }
+    [Serializable] public class CaptureContext
+    {
+        public string sessionId, scenario, variant, device, operatingSystem, unityVersion, project, buildId, graphicsApi, quality, capturedAt;
+        public bool isEditor;
+        public int targetFps;
+        public float warmupSeconds;
+        public long memoryBudgetBytes;
+        public static CaptureContext From(DeviceCapture capture) => new CaptureContext {
+            sessionId = capture.sessionId, scenario = capture.scenario, variant = capture.variant, device = capture.device,
+            operatingSystem = capture.operatingSystem, unityVersion = capture.unityVersion, project = capture.project,
+            buildId = capture.buildId, graphicsApi = capture.graphicsApi, quality = capture.quality, capturedAt = capture.capturedAt,
+            isEditor = capture.isEditor, targetFps = capture.targetFps, warmupSeconds = capture.warmupSeconds,
+            memoryBudgetBytes = capture.memoryBudgetBytes
+        };
+    }
     [Serializable] public class CaptureComparison
     {
         public string status, scope;
+        public CaptureContext beforeContext, afterContext;
         public CaptureSummary before, after;
         public double p95DeltaMs;
         public List<LoadingDelta> loading = new();
@@ -138,7 +154,9 @@ namespace Optifunity.Runtime
         private static double Percentile(List<double> sorted, double p) => sorted[Math.Max(0, (int)Math.Ceiling(sorted.Count * p)-1)];
         public static CaptureComparison Compare(DeviceCapture before, DeviceCapture after)
         {
-            var result = new CaptureComparison { before = Summarize(before), after = Summarize(after), status = "Comparable recorded context; causal improvement not proven", scope = "Nearest-rank percentiles; hitch > 2x target frame budget; sampled peaks can miss between-sample peaks" };
+            var result = new CaptureComparison { before = Summarize(before), after = Summarize(after),
+                beforeContext = CaptureContext.From(before), afterContext = CaptureContext.From(after),
+                status = "Comparable recorded context; causal improvement not proven", scope = "Nearest-rank percentiles; hitch > 2x target frame budget; sampled peaks can miss between-sample peaks" };
             if (new[] { before.scenario, before.device, before.operatingSystem, before.project, before.unityVersion, before.graphicsApi, before.quality,
                     after.scenario, after.device, after.operatingSystem, after.project, after.unityVersion, after.graphicsApi, after.quality }.Any(string.IsNullOrWhiteSpace) ||
                 before.scenario != after.scenario || before.device != after.device || before.operatingSystem != after.operatingSystem ||

@@ -26,6 +26,29 @@ namespace Optifunity.Tests
             Assert.That(BoxingAnalyzer.Analyze(path, lines).Count(x => x.RuleId == "code.boxing"), Is.EqualTo(1));
             SemanticCodeAnalyzer.Clear();
         }
+        [Test] public void SameAssemblySourcesReuseSemanticCompilation()
+        {
+            string first = "Assets/OptifunityValidation/Gameplay/ValidationGameplay.cs";
+            string second = "Assets/OptifunityValidation/Gameplay/SecondGameplay.cs";
+            if (!File.Exists(first) || !File.Exists(second)) Assert.Ignore("Run Tools~/Validate.ps1 to install the owned fixture.");
+            SemanticCodeAnalyzer.Clear();
+            var model = typeof(SemanticCodeAnalyzer).GetMethod("Model", BindingFlags.NonPublic | BindingFlags.Static);
+            var cache = (System.Collections.IDictionary)typeof(SemanticCodeAnalyzer)
+                .GetField("Compilations", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
+            model.Invoke(null, new object[] { first, string.Join("\n", File.ReadAllLines(first)) });
+            var initial = cache.Values.Cast<object>().Single();
+            model.Invoke(null, new object[] { second, string.Join("\n", File.ReadAllLines(second)) });
+            Assert.That(cache.Values.Cast<object>().Single(), Is.SameAs(initial));
+            SemanticCodeAnalyzer.Clear();
+        }
+        [Test] public void CodeScanFindingsUseLoadableProjectPaths()
+        {
+            if (!File.Exists(".optifunity-fixture")) Assert.Ignore("Only scan the owned disposable fixture.");
+            var issue = CodeAnalysisRunner.RunAll(false).First(i => i.RuleId == "code.allocation" &&
+                i.AssetPath == "Assets/OptifunityValidation/Gameplay/ValidationGameplay.cs");
+            Assert.That(AssetDatabase.LoadAssetAtPath<MonoScript>(issue.AssetPath), Is.Not.Null);
+            Assert.That(issue.CodeLocation, Does.StartWith(issue.AssetPath + ":L"));
+        }
         [Test] public void FixtureImportsHaveResolvableScripts()
         {
             var script = AssetDatabase.LoadAssetAtPath<MonoScript>("Packages/com.unity.render-pipelines.core/Runtime/Volume/VolumeProfile.cs");

@@ -37,7 +37,7 @@ namespace Optifunity.Editor.Core
             using var sha = SHA256.Create();
             return BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(value))).Replace("-", "").ToLowerInvariant();
         }
-        public static string Key(PerformanceIssue issue) => Hash(issue.RuleId + "\n" + issue.Module + "\n" + (issue.AssetPath ?? "").Replace('\\','/') + "\n" + issue.CodeLocation + "\n" + issue.Title);
+        public static string Key(PerformanceIssue issue) => Hash(issue.RuleId + "\n" + issue.Module + "\n" + (issue.AssetPath ?? "").Replace('\\','/') + "\n" + issue.CodeLocation + "\n" + issue.Title + (string.IsNullOrEmpty(issue.FindingIdentity) ? "" : "\n" + issue.FindingIdentity));
         public static FindingState Load()
         {
             if (!File.Exists(StatePath)) return new FindingState { project = Project };

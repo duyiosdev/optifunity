@@ -64,11 +64,11 @@ namespace Optifunity.Editor.Module1
                     catch { skipped++; incomplete = true; continue; }
 
                     // ─── Chạy các bộ phân tích (Regex-based) ───────────────────────────
-                    var gcIssues     = GCAllocAnalyzer.Analyze(fullPath, lines);
-                    var boxIssues    = BoxingAnalyzer.Analyze(fullPath, lines);
-                    var leakIssues   = MemLeakAnalyzer.Analyze(fullPath, lines);
+                    var gcIssues     = GCAllocAnalyzer.Analyze(assetPath, lines);
+                    var boxIssues    = BoxingAnalyzer.Analyze(assetPath, lines);
+                    var leakIssues   = MemLeakAnalyzer.Analyze(assetPath, lines);
                     var antiIssues   = new List<Core.PerformanceIssue>(); // Legacy lexical heuristics are not semantic evidence.
-                    var resourceIssues = ResourceManagementAnalyzer.Analyze(fullPath, lines);
+                    var resourceIssues = ResourceManagementAnalyzer.Analyze(assetPath, lines);
 
                     // Gán AssetPath cho tất cả issues
                     SetAssetPath(gcIssues,   assetPath);

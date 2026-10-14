@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
+using UnityEditor;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -41,8 +43,12 @@ namespace Optifunity.Editor.Module1
                             bool allocation = node is ArrayCreationExpressionSyntax || node is ImplicitArrayCreationExpressionSyntax ||
                                 ((node is ObjectCreationExpressionSyntax || node is ImplicitObjectCreationExpressionSyntax) && nestedModel.GetTypeInfo(node).Type?.IsReferenceType == true);
                             if (allocation)
-                                result.Add(Issue(path, method, "code.callgraph", "Allocation reachable through helper",
-                                    next.chain + " at " + node.GetLocation().GetLineSpan() + "; static call path, execution frequency/branches not proven."));
+                            {
+                                var issue = Issue(path, node, "code.callgraph", "Allocation reachable through helper",
+                                    next.chain + " at " + node.GetLocation().GetLineSpan() + "; static call path, execution frequency/branches not proven.");
+                                issue.FindingIdentity = next.chain;
+                                result.Add(issue);
+                            }
                         }
                         AddCalls(body, nestedModel, next.chain, pending);
                     }
@@ -79,9 +85,14 @@ namespace Optifunity.Editor.Module1
                 if (type.ToDisplayString() == "UnityEngine.MonoBehaviour") return true;
             return false;
         }
-        private static PerformanceIssue Issue(string path, SyntaxNode node, string rule, string title, string description) =>
-            new PerformanceIssue { RuleId = rule, EvidenceLevel = "Advisory", Severity = IssueSeverity.Info, AssetPath = path,
-                CodeLocation = path + ":L" + (node.GetLocation().GetLineSpan().StartLinePosition.Line + 1), Title = title,
+        private static PerformanceIssue Issue(string path, SyntaxNode node, string rule, string title, string description)
+        {
+            string source = node.SyntaxTree.FilePath;
+            string assetPath = Path.IsPathRooted(source) ? FileUtil.GetProjectRelativePath(source) : source;
+            if (string.IsNullOrEmpty(assetPath)) assetPath = path;
+            return new PerformanceIssue { RuleId = rule, EvidenceLevel = "Advisory", Severity = IssueSeverity.Info, AssetPath = assetPath,
+                CodeLocation = SemanticCodeAnalyzer.Location(assetPath, node), Title = title,
                 Description = description, FixSuggestion = "Inspect the call path and object ownership, then measure on the target device." };
+        }
     }
 }

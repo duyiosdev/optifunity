@@ -12,7 +12,7 @@ Trạng thái: chưa có game/thiết bị/scenario do người dùng xác nhậ
 
 ## Phân tích
 
-Trong Evidence and Benchmarks, chọn hai capture JSON. Context khác bị từ chối; nguồn metric/thời lượng khác được cảnh báo. Công thức:
+Trong Evidence and Benchmarks, chọn hai capture JSON. Kết quả so sánh xuất ra kèm context của cả hai capture (project, build, session, scenario, device, thời điểm và cấu hình đo) để truy nguồn số liệu. Context khác bị từ chối; nguồn metric/thời lượng khác được cảnh báo. Công thức:
 
 - Percentile nearest-rank: sắp xếp frame interval rồi lấy phần tử `ceil(p*N)-1` cho p50/p95/p99.
 - Hitch: frame interval lớn hơn `2 * 1000 / targetFps`; báo cả count và tỷ lệ. Đây là định nghĩa của protocol, không là chuẩn chất lượng phổ quát.
